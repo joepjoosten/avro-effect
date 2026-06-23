@@ -1,0 +1,88 @@
+import { describe, expect, it } from "@effect/vitest"
+import { Effect } from "effect"
+import {
+  decodeConfluentFrame,
+  decodeWithRegistry,
+  encodeConfluentFrame,
+  encodeWithRegistry,
+  makeClient,
+  subjectName
+} from "../src/index.js"
+
+describe("@avro-effect/schema-registry", () => {
+  const schema = {
+    type: "record",
+    name: "Event",
+    namespace: "example",
+    fields: [{ name: "id", type: "long" }]
+  } as const
+
+  it("encodes and decodes Confluent frames", () => {
+    const frame = encodeConfluentFrame(258, new Uint8Array([1, 2, 3]))
+
+    expect([...frame.subarray(0, 5)]).toEqual([0, 0, 0, 1, 2])
+    expect(decodeConfluentFrame(frame)).toEqual({
+      schemaId: 258,
+      payload: new Uint8Array([1, 2, 3])
+    })
+  })
+
+  it("builds subject names", () => {
+    expect(subjectName("TopicNameStrategy", { topic: "events", schema })).toBe("events-value")
+    expect(subjectName("TopicNameStrategy", { topic: "events", isKey: true, schema })).toBe("events-key")
+    expect(subjectName("RecordNameStrategy", { topic: "events", schema })).toBe("example.Event")
+    expect(subjectName("TopicRecordNameStrategy", { topic: "events", schema })).toBe("events-example.Event")
+  })
+
+  it.effect("registers schemas and decodes by schema id", () =>
+    Effect.gen(function*() {
+      const requests: Array<{ readonly method: string; readonly path: string }> = []
+      const fetch = async (input: string | URL, init?: RequestInit) => {
+        const url = new URL(String(input))
+        requests.push({ method: init?.method ?? "GET", path: url.pathname })
+        if (url.pathname === "/subjects/events-value/versions") {
+          return json({ id: 7, subject: "events-value", version: 1 })
+        }
+        if (url.pathname === "/schemas/ids/7") {
+          return json({ schema: JSON.stringify(schema) })
+        }
+        return new Response("not found", { status: 404 })
+      }
+      const client = makeClient({ endpoint: "http://registry.test", fetch })
+
+      const encoded = yield* encodeWithRegistry(client, {
+        subject: "events-value",
+        schema,
+        value: { id: 42 }
+      })
+      const decoded = yield* decodeWithRegistry(client, encoded)
+
+      expect(decoded).toEqual({ id: 42 })
+      expect(requests).toEqual([
+        { method: "POST", path: "/subjects/events-value/versions" }
+      ])
+    }))
+
+  it.effect("uses subject/schema cache for repeated registration", () =>
+    Effect.gen(function*() {
+      let calls = 0
+      const client = makeClient({
+        endpoint: "http://registry.test",
+        fetch: async () => {
+          calls += 1
+          return json({ id: 9, subject: "events-value", version: 1 })
+        }
+      })
+
+      yield* client.register({ subject: "events-value", schema })
+      yield* client.register({ subject: "events-value", schema })
+
+      expect(calls).toBe(1)
+    }))
+})
+
+const json = (body: unknown) =>
+  new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { "Content-Type": "application/json" }
+  })

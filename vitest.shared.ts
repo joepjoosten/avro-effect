@@ -1,6 +1,15 @@
 import type { UserConfig } from "vitest/config"
 
 const config: UserConfig = {
+  resolve: {
+    alias: {
+      "@avro-effect/core": new URL("./packages/core/src/index.ts", import.meta.url).pathname,
+      "@avro-effect/kafka": new URL("./packages/kafka/src/index.ts", import.meta.url).pathname,
+      "@avro-effect/node": new URL("./packages/node/src/index.ts", import.meta.url).pathname,
+      "@avro-effect/schema": new URL("./packages/schema/src/index.ts", import.meta.url).pathname,
+      "@avro-effect/schema-registry": new URL("./packages/schema-registry/src/index.ts", import.meta.url).pathname
+    }
+  },
   esbuild: {
     target: "es2022"
   },

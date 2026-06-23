@@ -8,3 +8,5 @@ Initial release.
 - Add native Avro binary encoder and decoder.
 - Support primitives, records, enums, arrays, maps, unions, fixed values, bytes, and recursive named references.
 - Add Effect-native encode/decode helpers.
+- Add partial decode helpers for object-container block readers.
+- Add browser-friendly `toUint8Array` and `fromUint8Array` type methods.

@@ -26,8 +26,8 @@ const schema = {
 } as const
 
 const type = parse(schema)
-const buffer = type.toBuffer({ id: 1, body: "hello", tags: ["avro"] })
-const message = type.fromBuffer(buffer)
+const bytes = type.toUint8Array({ id: 1, body: "hello", tags: ["avro"] })
+const message = type.fromUint8Array(bytes)
 
 const bytes = encode(schema, message)
 const decoded = decode(schema, bytes)
@@ -36,8 +36,9 @@ const decoded = decode(schema, bytes)
 ## Features
 
 - Avro schema model types
-- Native Avro binary encoder and decoder
+- Native Avro binary encoder and decoder using platform-neutral `Uint8Array`
 - Primitive, record, enum, array, map, union, bytes, fixed, and logical type schema support
 - Named type, alias, namespace, and recursive reference handling
 - Plain union values rather than wrapper objects
+- Partial decode support for block-oriented readers
 - `Effect.try` based `encodeEffect` and `decodeEffect` helpers

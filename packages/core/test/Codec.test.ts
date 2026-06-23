@@ -10,7 +10,8 @@ describe("@avro-effect/core", () => {
     expect(decode("float", encode("float", 1.5))).toEqual(1.5)
     expect(decode("double", encode("double", Math.PI))).toEqual(Math.PI)
     expect(decode("string", encode("string", "hello"))).toEqual("hello")
-    expect([...decode<Buffer>("bytes", encode("bytes", Buffer.from([1, 2, 3])))]).toEqual([1, 2, 3])
+    expect([...decode<Uint8Array>("bytes", encode("bytes", new Uint8Array([1, 2, 3])))])
+      .toEqual([1, 2, 3])
   })
 
   it("encodes and decodes records, arrays, maps, enums, fixed and unions", () => {
@@ -30,7 +31,7 @@ describe("@avro-effect/core", () => {
     const value = {
       id: 1,
       kind: "Created",
-      hash: Buffer.from([1, 2, 3]),
+      hash: new Uint8Array([1, 2, 3]),
       tags: ["a", "b"],
       metadata: { x: "y" },
       optional: "ok"
@@ -52,5 +53,16 @@ describe("@avro-effect/core", () => {
 
     expect(decode(schema, encode(schema, value))).toEqual(value)
   })
-})
 
+  it("decodes values from a buffer prefix", () => {
+    const first = encode("string", "a")
+    const second = encode("string", "b")
+    const type = parse<string>("string")
+    const combined = new Uint8Array(first.length + second.length)
+    combined.set(first, 0)
+    combined.set(second, first.length)
+    const decoded = type.decodePartial(combined)
+
+    expect(decoded).toEqual({ value: "a", offset: first.length })
+  })
+})

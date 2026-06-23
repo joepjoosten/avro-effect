@@ -3,6 +3,9 @@
   "include": [],
   "references": [
     { "path": "packages/core/tsconfig.json" },
+    { "path": "packages/schema-registry/tsconfig.json" },
+    { "path": "packages/kafka/tsconfig.json" },
+    { "path": "packages/node/tsconfig.json" },
     { "path": "packages/schema/tsconfig.json" }
   ]
 }

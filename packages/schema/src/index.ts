@@ -1,4 +1,3 @@
-import { Buffer } from "node:buffer"
 import * as Avro from "@avro-effect/core"
 import { Effect, Option, Schema, SchemaAST, SchemaIssue, SchemaTransformation } from "effect"
 
@@ -112,7 +111,7 @@ export interface CompiledAvroSchema {
 }
 
 export interface AvroCodec<S extends Schema.Constraint>
-  extends Schema.Codec<S["Type"], Buffer, S["DecodingServices"], S["EncodingServices"]>
+  extends Schema.Codec<S["Type"], Uint8Array, S["DecodingServices"], S["EncodingServices"]>
 {
   readonly avro: AvroSchema
   readonly avroType: Avro.Type
@@ -174,9 +173,7 @@ const primitiveNames = new Set<AvroPrimitive>([
 
 const namePattern = /^[A-Za-z_][A-Za-z0-9_]*$/
 
-const BufferSchema = Schema.instanceOf(Buffer, {
-  expected: "Buffer"
-})
+const BinarySchema = Schema.Uint8Array
 
 export const toAvroSchema = <S extends Schema.Constraint>(schema: S, options: ToAvroOptions = {}): AvroSchema => {
   const rootName = options.name ?? schemaIdentifier(schema) ?? "Root"
@@ -207,7 +204,7 @@ export const avro = <S extends Schema.Constraint>(
   const compiled = compileAvro(schema, options)
   const registry = makeRuntimeRegistry(compiled.schema, options.namespace)
 
-  const codec = BufferSchema.pipe(
+  const codec = BinarySchema.pipe(
     Schema.decodeTo(
       schema,
       SchemaTransformation.transformOrFail({
@@ -755,24 +752,21 @@ const toAvroRuntime = (value: unknown, schema: AvroSchema, registry: RuntimeRegi
         ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, toAvroRuntime(item, concrete.values, registry)]))
         : value
     case "fixed":
-      return toBuffer(value)
+      return toBytes(value)
     default:
       if (concrete.type === "bytes") {
-        return toBuffer(value)
+        return toBytes(value)
       }
       return value
   }
 }
 
 const primitiveToAvroRuntime = (value: unknown, primitive: string): unknown =>
-  primitive === "bytes" ? toBuffer(value) : value
+  primitive === "bytes" ? toBytes(value) : value
 
-const toBuffer = (value: unknown): unknown => {
-  if (Buffer.isBuffer(value)) {
-    return value
-  }
+const toBytes = (value: unknown): unknown => {
   if (value instanceof Uint8Array) {
-    return Buffer.from(value.buffer, value.byteOffset, value.byteLength)
+    return value
   }
   return value
 }
@@ -796,7 +790,7 @@ const matchesAvro = (schema: AvroSchema, value: unknown, registry: RuntimeRegist
       case "double":
         return typeof value === "number"
       case "bytes":
-        return Buffer.isBuffer(value) || value instanceof Uint8Array
+        return value instanceof Uint8Array
       default:
         return matchesAvro(resolveRuntimeSchema(resolved, registry), value, registry)
     }
@@ -819,7 +813,7 @@ const matchesAvro = (schema: AvroSchema, value: unknown, registry: RuntimeRegist
     case "map":
       return isRecordLike(value) && !Array.isArray(value)
     case "fixed":
-      return (Buffer.isBuffer(value) || value instanceof Uint8Array) && value.byteLength === concrete.size
+      return value instanceof Uint8Array && value.byteLength === concrete.size
     default:
       return typeof concrete.type === "string" ? matchesAvro(concrete.type, value, registry) : false
   }

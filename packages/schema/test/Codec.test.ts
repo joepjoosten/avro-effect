@@ -31,7 +31,7 @@ describe("@avro-effect/schema", () => {
       const buffer = encode(post)
       const decoded = decode(buffer)
 
-      expect(Buffer.isBuffer(buffer)).toBe(true)
+      expect(buffer).toBeInstanceOf(Uint8Array)
       expect(decoded).toEqual(post)
     }))
 
@@ -80,7 +80,7 @@ describe("@avro-effect/schema", () => {
       const BlobAvro = avro(Imported, { name: "Blob" })
       const encode = Schema.encodeSync(BlobAvro)
       const decode = Schema.decodeUnknownSync(BlobAvro)
-      const value = { id: 1, payload: Buffer.from([1, 2, 3]), kind: "A" }
+      const value = { id: 1, payload: new Uint8Array([1, 2, 3]), kind: "A" }
 
       expect(decode(encode(value))).toEqual(value)
     }))

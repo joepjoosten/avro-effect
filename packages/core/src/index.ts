@@ -1,4 +1,3 @@
-import { Buffer } from "node:buffer"
 import { Effect } from "effect"
 
 export type AvroPrimitive =
@@ -93,12 +92,20 @@ export class AvroError extends Error {
 
 export interface Type<A = unknown> {
   readonly schema: AvroSchema
-  readonly toBuffer: (value: A) => Buffer
-  readonly fromBuffer: (buffer: Buffer | Uint8Array) => A
-  readonly encode: (value: A) => Buffer
-  readonly decode: (buffer: Buffer | Uint8Array) => A
+  readonly toUint8Array: (value: A) => Uint8Array
+  readonly fromUint8Array: (buffer: Uint8Array) => A
+  readonly toBuffer: (value: A) => Uint8Array
+  readonly fromBuffer: (buffer: Uint8Array) => A
+  readonly decodePartial: (buffer: Uint8Array, offset?: number) => DecodeResult<A>
+  readonly encode: (value: A) => Uint8Array
+  readonly decode: (buffer: Uint8Array) => A
   readonly isValid: (value: unknown) => value is A
   readonly getSchema: () => string
+}
+
+export interface DecodeResult<A = unknown> {
+  readonly value: A
+  readonly offset: number
 }
 
 export interface ParseOptions {
@@ -154,18 +161,31 @@ export const parse = <A = unknown>(schema: AvroSchema, options: ParseOptions = {
 
   const api: Type<A> = {
     schema,
-    toBuffer: (value) => {
+    toUint8Array: (value) => {
       const writer = new BinaryWriter()
       writeNode(resolveNode(node), value, writer)
-      return writer.toBuffer()
+      return writer.toUint8Array()
     },
-    fromBuffer: (input) => {
-      const reader = new BinaryReader(Buffer.from(input))
+    fromUint8Array: (input) => {
+      const reader = new BinaryReader(input)
       const value = readNode(resolveNode(node), reader) as A
       if (!reader.done) {
         throw new AvroError(`Trailing Avro data at offset ${reader.offset}`)
       }
       return value
+    },
+    toBuffer(value) {
+      return api.toUint8Array(value)
+    },
+    fromBuffer(input) {
+      return api.fromUint8Array(input)
+    },
+    decodePartial: (input, offset = 0) => {
+      const reader = new BinaryReader(input, offset)
+      return {
+        value: readNode(resolveNode(node), reader) as A,
+        offset: reader.offset
+      }
     },
     encode(value) {
       return api.toBuffer(value)
@@ -179,11 +199,19 @@ export const parse = <A = unknown>(schema: AvroSchema, options: ParseOptions = {
   return api
 }
 
-export const encode = <A>(schema: AvroSchema, value: A, options?: ParseOptions): Buffer =>
+export const encode = <A>(schema: AvroSchema, value: A, options?: ParseOptions): Uint8Array =>
   parse<A>(schema, options).toBuffer(value)
 
-export const decode = <A = unknown>(schema: AvroSchema, buffer: Buffer | Uint8Array, options?: ParseOptions): A =>
+export const decode = <A = unknown>(schema: AvroSchema, buffer: Uint8Array, options?: ParseOptions): A =>
   parse<A>(schema, options).fromBuffer(buffer)
+
+export const decodePartial = <A = unknown>(
+  schema: AvroSchema,
+  buffer: Uint8Array,
+  offset = 0,
+  options?: ParseOptions
+): DecodeResult<A> =>
+  parse<A>(schema, options).decodePartial(buffer, offset)
 
 export const encodeEffect = <A>(schema: AvroSchema, value: A, options?: ParseOptions) =>
   Effect.try({
@@ -191,7 +219,7 @@ export const encodeEffect = <A>(schema: AvroSchema, value: A, options?: ParseOpt
     catch: (error) => new AvroError(`Unable to encode Avro value: ${message(error)}`, error)
   })
 
-export const decodeEffect = <A = unknown>(schema: AvroSchema, buffer: Buffer | Uint8Array, options?: ParseOptions) =>
+export const decodeEffect = <A = unknown>(schema: AvroSchema, buffer: Uint8Array, options?: ParseOptions) =>
   Effect.try({
     try: () => decode<A>(schema, buffer, options),
     catch: (error) => new AvroError(`Unable to decode Avro value: ${message(error)}`, error)
@@ -521,9 +549,9 @@ const matchesNode = (node: Node, value: unknown): boolean => {
     case "double":
       return typeof value === "number" && Number.isFinite(value)
     case "bytes":
-      return Buffer.isBuffer(value) || value instanceof Uint8Array
+      return value instanceof Uint8Array
     case "fixed":
-      return (Buffer.isBuffer(value) || value instanceof Uint8Array) && value.byteLength === node.size
+      return value instanceof Uint8Array && value.byteLength === node.size
     case "string":
       return typeof value === "string"
     case "enum":
@@ -564,11 +592,14 @@ const readBlocks = (reader: BinaryReader, read: (count: number) => void) => {
   }
 }
 
+const textEncoder = new TextEncoder()
+const textDecoder = new TextDecoder()
+
 class BinaryWriter {
-  private readonly chunks: Array<Buffer> = []
+  private readonly chunks: Array<Uint8Array> = []
 
   writeByte(byte: number) {
-    this.chunks.push(Buffer.from([byte]))
+    this.chunks.push(new Uint8Array([byte]))
   }
 
   writeLong(value: number) {
@@ -582,27 +613,27 @@ class BinaryWriter {
       encoded >>= 7n
     }
     bytes.push(Number(encoded))
-    this.chunks.push(Buffer.from(bytes))
+    this.chunks.push(new Uint8Array(bytes))
   }
 
   writeFloat(value: number) {
-    const buffer = Buffer.allocUnsafe(4)
-    buffer.writeFloatLE(value, 0)
+    const buffer = new Uint8Array(4)
+    new DataView(buffer.buffer).setFloat32(0, value, true)
     this.chunks.push(buffer)
   }
 
   writeDouble(value: number) {
-    const buffer = Buffer.allocUnsafe(8)
-    buffer.writeDoubleLE(value, 0)
+    const buffer = new Uint8Array(8)
+    new DataView(buffer.buffer).setFloat64(0, value, true)
     this.chunks.push(buffer)
   }
 
-  writeBytes(value: Buffer) {
+  writeBytes(value: Uint8Array) {
     this.writeLong(value.length)
     this.chunks.push(value)
   }
 
-  writeFixed(value: Buffer, size: number) {
+  writeFixed(value: Uint8Array, size: number) {
     if (value.length !== size) {
       throw new AvroError(`Expected fixed value of size ${size}, got ${value.length}`)
     }
@@ -610,20 +641,21 @@ class BinaryWriter {
   }
 
   writeString(value: string) {
-    this.writeBytes(Buffer.from(value, "utf8"))
+    this.writeBytes(textEncoder.encode(value))
   }
 
-  toBuffer(): Buffer {
-    return Buffer.concat(this.chunks)
+  toUint8Array(): Uint8Array {
+    return concatBytes(this.chunks)
   }
 }
 
 class BinaryReader {
-  readonly buffer: Buffer
-  offset = 0
+  readonly buffer: Uint8Array
+  offset: number
 
-  constructor(buffer: Buffer) {
+  constructor(buffer: Uint8Array, offset = 0) {
     this.buffer = buffer
+    this.offset = offset
   }
 
   get done(): boolean {
@@ -659,19 +691,19 @@ class BinaryReader {
 
   readFloat(): number {
     this.ensure(4)
-    const value = this.buffer.readFloatLE(this.offset)
+    const value = new DataView(this.buffer.buffer, this.buffer.byteOffset + this.offset, 4).getFloat32(0, true)
     this.offset += 4
     return value
   }
 
   readDouble(): number {
     this.ensure(8)
-    const value = this.buffer.readDoubleLE(this.offset)
+    const value = new DataView(this.buffer.buffer, this.buffer.byteOffset + this.offset, 8).getFloat64(0, true)
     this.offset += 8
     return value
   }
 
-  readBytes(): Buffer {
+  readBytes(): Uint8Array {
     const length = this.readLong()
     if (length < 0) {
       throw new AvroError(`Invalid negative bytes length ${length}`)
@@ -679,7 +711,7 @@ class BinaryReader {
     return this.readFixed(length)
   }
 
-  readFixed(size: number): Buffer {
+  readFixed(size: number): Uint8Array {
     this.ensure(size)
     const value = this.buffer.subarray(this.offset, this.offset + size)
     this.offset += size
@@ -687,7 +719,7 @@ class BinaryReader {
   }
 
   readString(): string {
-    return this.readBytes().toString("utf8")
+    return textDecoder.decode(this.readBytes())
   }
 
   private ensure(bytes: number) {
@@ -697,14 +729,22 @@ class BinaryReader {
   }
 }
 
-const toBuffer = (value: unknown, label: string): Buffer => {
-  if (Buffer.isBuffer(value)) {
+const toBuffer = (value: unknown, label: string): Uint8Array => {
+  if (value instanceof Uint8Array) {
     return value
   }
-  if (value instanceof Uint8Array) {
-    return Buffer.from(value.buffer, value.byteOffset, value.byteLength)
+  throw new AvroError(`Expected ${label} to be Uint8Array`)
+}
+
+const concatBytes = (chunks: ReadonlyArray<Uint8Array>): Uint8Array => {
+  const size = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
+  const out = new Uint8Array(size)
+  let offset = 0
+  for (const chunk of chunks) {
+    out.set(chunk, offset)
+    offset += chunk.length
   }
-  throw new AvroError(`Expected ${label} to be Buffer or Uint8Array`)
+  return out
 }
 
 const expected = (node: Node, value: unknown) =>

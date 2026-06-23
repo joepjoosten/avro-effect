@@ -37,8 +37,14 @@
     "paths": {
       "@avro-effect/core": ["./packages/core/src/index.ts"],
       "@avro-effect/core/*": ["./packages/core/src/*.ts"],
+      "@avro-effect/kafka": ["./packages/kafka/src/index.ts"],
+      "@avro-effect/kafka/*": ["./packages/kafka/src/*.ts"],
+      "@avro-effect/node": ["./packages/node/src/index.ts"],
+      "@avro-effect/node/*": ["./packages/node/src/*.ts"],
       "@avro-effect/schema": ["./packages/schema/src/index.ts"],
-      "@avro-effect/schema/*": ["./packages/schema/src/*.ts"]
+      "@avro-effect/schema/*": ["./packages/schema/src/*.ts"],
+      "@avro-effect/schema-registry": ["./packages/schema-registry/src/index.ts"],
+      "@avro-effect/schema-registry/*": ["./packages/schema-registry/src/*.ts"]
     }
   }
 }

@@ -48,7 +48,76 @@ importers:
         specifier: 4.1.4
         version: 4.1.4(@types/node@25.9.4)(vite@8.1.0(@types/node@25.9.4)(yaml@2.9.0))
 
+  packages/kafka:
+    dependencies:
+      '@avro-effect/core':
+        specifier: workspace:^
+        version: link:../core
+      '@avro-effect/schema-registry':
+        specifier: workspace:^
+        version: link:../schema-registry
+    devDependencies:
+      '@effect/vitest':
+        specifier: 4.0.0-beta.87
+        version: 4.0.0-beta.87(effect@4.0.0-beta.87)(vitest@4.1.4(@types/node@25.9.4)(vite@8.1.0(@types/node@25.9.4)(yaml@2.9.0)))
+      '@types/node':
+        specifier: ^25.7.0
+        version: 25.9.4
+      effect:
+        specifier: 4.0.0-beta.87
+        version: 4.0.0-beta.87
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 4.1.4
+        version: 4.1.4(@types/node@25.9.4)(vite@8.1.0(@types/node@25.9.4)(yaml@2.9.0))
+
+  packages/node:
+    dependencies:
+      '@avro-effect/core':
+        specifier: workspace:^
+        version: link:../core
+    devDependencies:
+      '@effect/vitest':
+        specifier: 4.0.0-beta.87
+        version: 4.0.0-beta.87(effect@4.0.0-beta.87)(vitest@4.1.4(@types/node@25.9.4)(vite@8.1.0(@types/node@25.9.4)(yaml@2.9.0)))
+      '@types/node':
+        specifier: ^25.7.0
+        version: 25.9.4
+      effect:
+        specifier: 4.0.0-beta.87
+        version: 4.0.0-beta.87
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 4.1.4
+        version: 4.1.4(@types/node@25.9.4)(vite@8.1.0(@types/node@25.9.4)(yaml@2.9.0))
+
   packages/schema:
+    dependencies:
+      '@avro-effect/core':
+        specifier: workspace:^
+        version: link:../core
+    devDependencies:
+      '@effect/vitest':
+        specifier: 4.0.0-beta.87
+        version: 4.0.0-beta.87(effect@4.0.0-beta.87)(vitest@4.1.4(@types/node@25.9.4)(vite@8.1.0(@types/node@25.9.4)(yaml@2.9.0)))
+      '@types/node':
+        specifier: ^25.7.0
+        version: 25.9.4
+      effect:
+        specifier: 4.0.0-beta.87
+        version: 4.0.0-beta.87
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 4.1.4
+        version: 4.1.4(@types/node@25.9.4)(vite@8.1.0(@types/node@25.9.4)(yaml@2.9.0))
+
+  packages/schema-registry:
     dependencies:
       '@avro-effect/core':
         specifier: workspace:^

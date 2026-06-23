@@ -8,6 +8,9 @@ This repository publishes two packages under the `@avro-effect` npm scope:
 | --- | --- |
 | `@avro-effect/core` | Native Avro schema model plus binary encoder/decoder. |
 | `@avro-effect/schema` | Effect Schema v4 to Avro compiler, Avro to Effect Schema importer, and `Schema.Codec` integration. |
+| `@avro-effect/schema-registry` | Confluent Schema Registry client and wire framing. |
+| `@avro-effect/kafka` | Kafka key/value serializers and deserializers. |
+| `@avro-effect/node` | Node.js Avro object-container file helpers. |
 
 The packages target the Effect v4 line from `effect-smol` and currently use `effect@4.0.0-beta.87`.
 
@@ -23,6 +26,12 @@ Use `@avro-effect/core` directly when you only need Avro binary encoding and dec
 
 ```sh
 pnpm add @avro-effect/core effect
+```
+
+Use the companion packages when integrating with Schema Registry, Kafka, or Node object-container files:
+
+```sh
+pnpm add @avro-effect/schema-registry @avro-effect/kafka @avro-effect/node effect
 ```
 
 ## Effect Schema Codec
@@ -71,6 +80,12 @@ const value = decode(schema, bytes)
 ```
 
 `@avro-effect/core` is intentionally small and dependency-light. It replaces the previous `avro-js` runtime path for the schema package and exposes plain Avro union values rather than wrapper objects.
+
+## Integrations
+
+- `@avro-effect/schema-registry` handles Confluent Schema Registry HTTP APIs, schema id framing, and subject naming strategies.
+- `@avro-effect/kafka` composes the registry package into Kafka key/value serializer and deserializer functions without depending on a Kafka client.
+- `@avro-effect/node` reads and writes Avro object-container files with `null` and `deflate` codecs.
 
 ## Development
 

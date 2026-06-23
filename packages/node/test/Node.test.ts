@@ -1,0 +1,92 @@
+import { describe, expect, it } from "@effect/vitest"
+import { randomBytes } from "node:crypto"
+import * as Fs from "node:fs/promises"
+import * as Os from "node:os"
+import * as Path from "node:path"
+import { Effect, FileSystem, PlatformError } from "effect"
+import {
+  decodeContainer,
+  encodeContainer,
+  readContainerFile,
+  readContainerIterable,
+  writeContainerFile
+} from "../src/index.js"
+
+describe("@avro-effect/node", () => {
+  const schema = {
+    type: "record",
+    name: "Event",
+    fields: [
+      { name: "id", type: "long" },
+      { name: "name", type: "string" }
+    ]
+  } as const
+  const values = [
+    { id: 1, name: "created" },
+    { id: 2, name: "updated" }
+  ]
+
+  it("round-trips object container buffers", () => {
+    const syncMarker = Buffer.alloc(16, 1)
+    const buffer = encodeContainer(schema, values, { syncMarker, blockSize: 1 })
+    const decoded = decodeContainer(buffer)
+
+    expect(decoded.schema).toEqual(schema)
+    expect(decoded.codec).toBe("null")
+    expect(decoded.syncMarker).toEqual(syncMarker)
+    expect(decoded.values).toEqual(values)
+  })
+
+  it("round-trips deflate encoded blocks", () => {
+    const buffer = encodeContainer(schema, values, {
+      codec: "deflate",
+      syncMarker: randomBytes(16)
+    })
+
+    expect(decodeContainer(buffer).values).toEqual(values)
+  })
+
+  it.effect("writes and reads files", () =>
+    Effect.gen(function*() {
+      const dir = yield* Effect.tryPromise(() => Fs.mkdtemp(Path.join(Os.tmpdir(), "avro-effect-")))
+      const file = Path.join(dir, "events.avro")
+
+      yield* writeContainerFile(file, schema, values)
+      const decoded = yield* readContainerFile(file)
+
+      expect(decoded.values).toEqual(values)
+    }).pipe(Effect.provide(nodeFileSystem)))
+
+  it.effect("reads async iterables", () =>
+    Effect.gen(function*() {
+      const buffer = encodeContainer(schema, values)
+      const decoded = yield* readContainerIterable(async function*() {
+        yield buffer.subarray(0, 8)
+        yield buffer.subarray(8)
+      }())
+
+      expect(decoded.values).toEqual(values)
+    }))
+})
+
+const nodeFileSystem = FileSystem.layerNoop({
+  readFile: (path) =>
+    Effect.tryPromise({
+      try: () => Fs.readFile(path),
+      catch: (error) => platformError("readFile", path, error)
+    }),
+  writeFile: (path, data) =>
+    Effect.tryPromise({
+      try: () => Fs.writeFile(path, data),
+      catch: (error) => platformError("writeFile", path, error)
+    })
+})
+
+const platformError = (method: string, path: string, cause: unknown) =>
+  PlatformError.systemError({
+    _tag: "Unknown",
+    module: "FileSystem",
+    method,
+    pathOrDescriptor: path,
+    cause
+  })
