@@ -1,0 +1,7 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/avro-effect-schema/tsconfig.build.json" }
+  ]
+}
+

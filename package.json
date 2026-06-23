@@ -1,0 +1,26 @@
+{
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.17.1",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "pnpm --recursive --parallel run build",
+    "check": "tsc -b tsconfig.json",
+    "test": "vitest",
+    "coverage": "vitest --coverage",
+    "changeset": "changeset",
+    "changeset-version": "changeset version && pnpm install --lockfile-only",
+    "changeset-publish": "pnpm build && changeset publish"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.31.0",
+    "@effect/language-service": "^0.85.1",
+    "@effect/vitest": "4.0.0-beta.87",
+    "@types/node": "^25.7.0",
+    "effect": "4.0.0-beta.87",
+    "typescript": "^6.0.3",
+    "vitest": "4.1.4"
+  }
+}

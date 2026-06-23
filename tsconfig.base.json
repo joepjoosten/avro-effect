@@ -1,0 +1,42 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "ignoreDeprecations": "6.0",
+    "exactOptionalPropertyTypes": true,
+    "moduleDetection": "force",
+    "composite": true,
+    "downlevelIteration": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": false,
+    "allowSyntheticDefaultImports": true,
+    "declaration": true,
+    "skipLibCheck": true,
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": [],
+    "isolatedModules": true,
+    "sourceMap": true,
+    "declarationMap": true,
+    "noImplicitReturns": false,
+    "noUnusedLocals": true,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "noEmitOnError": false,
+    "allowJs": false,
+    "checkJs": false,
+    "forceConsistentCasingInFileNames": true,
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "strictNullChecks": true,
+    "baseUrl": ".",
+    "target": "ES2022",
+    "module": "NodeNext",
+    "incremental": true,
+    "removeComments": false,
+    "plugins": [{ "name": "@effect/language-service" }],
+    "paths": {
+      "avro-effect-schema": ["./packages/avro-effect-schema/src/index.ts"],
+      "avro-effect-schema/*": ["./packages/avro-effect-schema/src/*.ts"]
+    }
+  }
+}

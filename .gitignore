@@ -1,0 +1,11 @@
+node_modules
+.codebase-memory/
+.pnpm-store
+dist
+build
+coverage
+.tsbuildinfo
+packages/*/.tsbuildinfo
+packages/*/build
+packages/*/dist
+*.log
