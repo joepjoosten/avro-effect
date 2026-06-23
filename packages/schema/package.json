@@ -6,7 +6,7 @@
   "description": "Effect Schema v4 Avro schema compiler and binary codec",
   "repository": {
     "type": "git",
-    "url": "https://github.com/joepjoosten/avro-effect-schema.git",
+    "url": "https://github.com/joepjoosten/avro-effect.git",
     "directory": "packages/schema"
   },
   "exports": {

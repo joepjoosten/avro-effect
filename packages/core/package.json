@@ -6,7 +6,7 @@
   "description": "Effect-native Avro runtime primitives and codecs",
   "repository": {
     "type": "git",
-    "url": "https://github.com/joepjoosten/avro-effect-schema.git",
+    "url": "https://github.com/joepjoosten/avro-effect.git",
     "directory": "packages/core"
   },
   "exports": {
