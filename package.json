@@ -8,6 +8,7 @@
   "scripts": {
     "build": "tsc -b tsconfig.build.json",
     "check": "tsc -b tsconfig.json",
+    "check:examples": "tsc -p examples/tsconfig.json",
     "test": "vitest",
     "coverage": "vitest --coverage",
     "changeset": "changeset",

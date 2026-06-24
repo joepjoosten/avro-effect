@@ -118,11 +118,21 @@ const program = Effect.gen(function*() {
 
 For direct embedding or adapter code, each package also keeps lower-level constructors such as `makeClient`, `encodeWithRegistry`, and `makeAvroNode`.
 
+## Examples
+
+The [examples](./examples) directory includes type-checked workflows for:
+
+- Effect Schema domain events encoded as Confluent-framed Kafka values
+- Schema Registry compatibility checks and schema evolution
+- `Effect.catchTag` based dead-letter handling
+- Node object-container archive files generated from Effect Schema Avro schemas
+
 ## Development
 
 ```sh
 pnpm install
 pnpm check
+pnpm check:examples
 pnpm test -- --run
 pnpm build
 ```

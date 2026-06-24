@@ -1,0 +1,16 @@
+{
+  "extends": "../tsconfig.base.json",
+  "include": ["**/*.ts"],
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"],
+    "tsBuildInfoFile": ".tsbuildinfo/examples.tsbuildinfo"
+  },
+  "references": [
+    { "path": "../packages/core/tsconfig.build.json" },
+    { "path": "../packages/schema/tsconfig.build.json" },
+    { "path": "../packages/schema-registry/tsconfig.build.json" },
+    { "path": "../packages/kafka/tsconfig.build.json" },
+    { "path": "../packages/node/tsconfig.build.json" }
+  ]
+}
