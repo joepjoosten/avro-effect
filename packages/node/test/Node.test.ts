@@ -5,10 +5,13 @@ import * as Os from "node:os"
 import * as Path from "node:path"
 import { Effect, FileSystem, PlatformError } from "effect"
 import {
+  AvroNode,
   decodeContainer,
   encodeContainer,
+  readFile,
   readContainerFile,
   readContainerIterable,
+  writeFile,
   writeContainerFile
 } from "../src/index.js"
 
@@ -56,6 +59,17 @@ describe("@avro-effect/node", () => {
 
       expect(decoded.values).toEqual(values)
     }).pipe(Effect.provide(nodeFileSystem)))
+
+  it.effect("exposes file helpers through an AvroNode service layer", () =>
+    Effect.gen(function*() {
+      const dir = yield* Effect.tryPromise(() => Fs.mkdtemp(Path.join(Os.tmpdir(), "avro-effect-")))
+      const file = Path.join(dir, "events.avro")
+
+      yield* writeFile(file, schema, values)
+      const decoded = yield* readFile(file)
+
+      expect(decoded.values).toEqual(values)
+    }).pipe(Effect.provide(AvroNode.layer)))
 
   it.effect("reads async iterables", () =>
     Effect.gen(function*() {

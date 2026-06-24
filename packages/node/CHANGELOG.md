@@ -8,3 +8,4 @@ Initial release.
 - Add `null` and `deflate` object container codecs.
 - Add Effect file read/write helpers.
 - Add async iterable container reader helper.
+- Add `AvroNode` service, default Node layer, and custom `layerNoDeps` support.

@@ -1,11 +1,14 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 import {
+  decode,
   decodeConfluentFrame,
   decodeWithRegistry,
+  encode,
   encodeConfluentFrame,
   encodeWithRegistry,
   makeClient,
+  SchemaRegistry,
   subjectName
 } from "../src/index.js"
 
@@ -79,6 +82,37 @@ describe("@avro-effect/schema-registry", () => {
 
       expect(calls).toBe(1)
     }))
+
+  it.effect("exposes the registry through a service layer", () => {
+    const requests: Array<{ readonly method: string; readonly path: string }> = []
+    const fetch = async (input: string | URL, init?: RequestInit) => {
+      const url = new URL(String(input))
+      requests.push({ method: init?.method ?? "GET", path: url.pathname })
+      if (url.pathname === "/subjects/events-value/versions") {
+        return json({ id: 11, subject: "events-value", version: 1 })
+      }
+      if (url.pathname === "/schemas/ids/11") {
+        return json({ schema: JSON.stringify(schema) })
+      }
+      return new Response("not found", { status: 404 })
+    }
+
+    return Effect.gen(function*() {
+      const encoded = yield* encode({
+        subject: "events-value",
+        schema,
+        value: { id: 42 }
+      })
+      const decoded = yield* decode(encoded)
+
+      expect(decoded).toEqual({ id: 42 })
+      expect(requests).toEqual([
+        { method: "POST", path: "/subjects/events-value/versions" }
+      ])
+    }).pipe(
+      Effect.provide(SchemaRegistry.layer({ endpoint: "http://registry.test", fetch }))
+    )
+  })
 })
 
 const json = (body: unknown) =>

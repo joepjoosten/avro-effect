@@ -1,5 +1,5 @@
 import * as Avro from "@avro-effect/core"
-import { Effect } from "effect"
+import { Context, Effect, Layer } from "effect"
 
 export interface SchemaReference {
   readonly name: string
@@ -51,6 +51,21 @@ export interface SchemaRegistryClient {
   readonly checkCompatibility: (
     request: RegisterSchemaRequest & { readonly version?: number | "latest" }
   ) => Effect.Effect<CompatibilityResult, SchemaRegistryError>
+}
+
+export class SchemaRegistry extends Context.Service<SchemaRegistry, SchemaRegistryClient>()(
+  "@avro-effect/schema-registry/SchemaRegistry"
+) {
+  static readonly layer = (options: SchemaRegistryClientOptions): Layer.Layer<SchemaRegistry, SchemaRegistryError> =>
+    Layer.effect(
+      SchemaRegistry,
+      Effect.try({
+        try: () => SchemaRegistry.of(makeClient(options)),
+        catch: (error) => error instanceof SchemaRegistryError
+          ? error
+          : new SchemaRegistryError(message(error), error)
+      })
+    )
 }
 
 export class SchemaRegistryError extends Error {
@@ -252,6 +267,37 @@ export const makeClient = (options: SchemaRegistryClientOptions): SchemaRegistry
   }
 }
 
+export const register = (
+  request: RegisterSchemaRequest
+): Effect.Effect<RegisteredSchema, SchemaRegistryError, SchemaRegistry> =>
+  SchemaRegistry.use((registry) => registry.register(request))
+
+export const getId = (
+  request: RegisterSchemaRequest
+): Effect.Effect<RegisteredSchema, SchemaRegistryError, SchemaRegistry> =>
+  SchemaRegistry.use((registry) => registry.getId(request))
+
+export const getById = (
+  id: number
+): Effect.Effect<RegisteredSchema, SchemaRegistryError, SchemaRegistry> =>
+  SchemaRegistry.use((registry) => registry.getById(id))
+
+export const getVersion = (
+  subject: string,
+  version: number | "latest"
+): Effect.Effect<RegisteredSchema, SchemaRegistryError, SchemaRegistry> =>
+  SchemaRegistry.use((registry) => registry.getVersion(subject, version))
+
+export const getLatest = (
+  subject: string
+): Effect.Effect<RegisteredSchema, SchemaRegistryError, SchemaRegistry> =>
+  SchemaRegistry.use((registry) => registry.getLatest(subject))
+
+export const checkCompatibility = (
+  request: RegisterSchemaRequest & { readonly version?: number | "latest" }
+): Effect.Effect<CompatibilityResult, SchemaRegistryError, SchemaRegistry> =>
+  SchemaRegistry.use((registry) => registry.checkCompatibility(request))
+
 export interface RegistryEncodeOptions<A> extends RegisterSchemaRequest {
   readonly value: A
   readonly autoRegister?: boolean
@@ -270,6 +316,11 @@ export const encodeWithRegistry = <A>(
     })
   })
 
+export const encode = <A>(
+  options: RegistryEncodeOptions<A>
+): Effect.Effect<Uint8Array, SchemaRegistryError | Avro.AvroError, SchemaRegistry> =>
+  SchemaRegistry.use((registry) => encodeWithRegistry(registry, options))
+
 export const decodeWithRegistry = <A = unknown>(
   client: SchemaRegistryClient,
   input: Uint8Array,
@@ -286,6 +337,12 @@ export const decodeWithRegistry = <A = unknown>(
       catch: registryOrAvroError
     })
   })
+
+export const decode = <A = unknown>(
+  input: Uint8Array,
+  options?: Avro.ParseOptions
+): Effect.Effect<A, SchemaRegistryError | Avro.AvroError, SchemaRegistry> =>
+  SchemaRegistry.use((registry) => decodeWithRegistry<A>(registry, input, options))
 
 interface RegistryResponse {
   readonly id?: number

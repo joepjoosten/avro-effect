@@ -1,10 +1,13 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect } from "effect"
-import { makeClient } from "@avro-effect/schema-registry"
+import { Effect, Layer } from "effect"
+import { makeClient, SchemaRegistry } from "@avro-effect/schema-registry"
 import {
   avroDeserializer,
   avroSerializer,
+  decodeValue,
   decodeMessageValue,
+  KafkaAvro,
+  serializeRegistryValue,
   registryValueSerializer
 } from "../src/index.js"
 
@@ -53,6 +56,40 @@ describe("@avro-effect/kafka", () => {
         { method: "POST", path: "/subjects/events-value/versions" }
       ])
     }))
+
+  it.effect("composes KafkaAvro with SchemaRegistry layers", () => {
+    const requests: Array<{ readonly method: string; readonly path: string }> = []
+    const fetch = async (input: string | URL, init?: RequestInit) => {
+      const url = new URL(String(input))
+      requests.push({ method: init?.method ?? "GET", path: url.pathname })
+      if (url.pathname === "/subjects/events-value/versions") {
+        return json({ id: 5, subject: "events-value", version: 1 })
+      }
+      if (url.pathname === "/schemas/ids/5") {
+        return json({ schema: JSON.stringify(schema) })
+      }
+      return new Response("not found", { status: 404 })
+    }
+
+    const layer = KafkaAvro.layer.pipe(
+      Layer.provide(SchemaRegistry.layer({ endpoint: "http://registry.test", fetch }))
+    )
+
+    return Effect.gen(function*() {
+      const payload = yield* serializeRegistryValue({ topic: "events", schema }, { id: 4 })
+      const decoded = yield* decodeValue({
+        topic: "events",
+        partition: 0,
+        offset: "2",
+        value: payload
+      })
+
+      expect(decoded).toEqual({ id: 4 })
+      expect(requests).toEqual([
+        { method: "POST", path: "/subjects/events-value/versions" }
+      ])
+    }).pipe(Effect.provide(layer))
+  })
 })
 
 const json = (body: unknown) =>

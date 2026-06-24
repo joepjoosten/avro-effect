@@ -2,7 +2,7 @@
 
 Effect v4 packages for working with Apache Avro schemas and binary data.
 
-This repository publishes two packages under the `@avro-effect` npm scope:
+This repository publishes five packages under the `@avro-effect` npm scope:
 
 | Package | Purpose |
 | --- | --- |
@@ -86,6 +86,37 @@ const value = decode(schema, bytes)
 - `@avro-effect/schema-registry` handles Confluent Schema Registry HTTP APIs, schema id framing, and subject naming strategies.
 - `@avro-effect/kafka` composes the registry package into Kafka key/value serializer and deserializer functions without depending on a Kafka client.
 - `@avro-effect/node` reads and writes Avro object-container files with `null` and `deflate` codecs.
+
+The integration packages expose Effect services as their primary API:
+
+```ts
+import { Effect, Layer } from "effect"
+import { SchemaRegistry } from "@avro-effect/schema-registry"
+import { KafkaAvro, decodeValue, serializeRegistryValue } from "@avro-effect/kafka"
+
+const RegistryLive = SchemaRegistry.layer({
+  endpoint: "http://localhost:8081"
+})
+
+const KafkaAvroLive = KafkaAvro.layer.pipe(
+  Layer.provide(RegistryLive)
+)
+
+const schema = {
+  type: "record",
+  name: "Event",
+  fields: [{ name: "id", type: "long" }]
+} as const
+
+const program = Effect.gen(function*() {
+  const value = yield* serializeRegistryValue({ topic: "events", schema }, { id: 1 })
+  return yield* decodeValue({ topic: "events", value })
+}).pipe(
+  Effect.provide(KafkaAvroLive)
+)
+```
+
+For direct embedding or adapter code, each package also keeps lower-level constructors such as `makeClient`, `encodeWithRegistry`, and `makeAvroNode`.
 
 ## Development
 

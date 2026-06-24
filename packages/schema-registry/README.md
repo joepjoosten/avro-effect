@@ -11,11 +11,8 @@ pnpm add @avro-effect/schema-registry @avro-effect/core effect
 ## Usage
 
 ```ts
-import { makeClient, encodeWithRegistry, decodeWithRegistry } from "@avro-effect/schema-registry"
-
-const client = makeClient({
-  endpoint: "http://localhost:8081"
-})
+import { Effect } from "effect"
+import { SchemaRegistry, decode, encode } from "@avro-effect/schema-registry"
 
 const schema = {
   type: "record",
@@ -23,20 +20,30 @@ const schema = {
   fields: [{ name: "id", type: "long" }]
 } as const
 
-const encoded = encodeWithRegistry(client, {
-  subject: "events-value",
-  schema,
-  value: { id: 1 }
+const RegistryLive = SchemaRegistry.layer({
+  endpoint: "http://localhost:8081"
 })
 
-const decoded = decodeWithRegistry(client, encoded)
+const program = Effect.gen(function*() {
+  const encoded = yield* encode({
+    subject: "events-value",
+    schema,
+    value: { id: 1 }
+  })
+
+  return yield* decode(encoded)
+}).pipe(
+  Effect.provide(RegistryLive)
+)
 ```
 
 ## Features
 
+- Effect service and layer API via `SchemaRegistry`.
 - Register and lookup Avro schemas by subject.
 - Fetch schemas by id, subject version, and latest version.
 - Confluent wire frame helpers: magic byte `0`, 4-byte schema id, Avro payload.
 - Subject naming strategies: topic, record, and topic-record.
 - Basic auth and bearer token support.
 - In-memory schema id and subject/schema caches.
+- Lower-level `makeClient`, `encodeWithRegistry`, and `decodeWithRegistry` helpers for custom adapters.

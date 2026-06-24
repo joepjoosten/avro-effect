@@ -1,6 +1,6 @@
 import * as Avro from "@avro-effect/core"
 import * as Registry from "@avro-effect/schema-registry"
-import { Effect } from "effect"
+import { Context, Effect, Layer } from "effect"
 
 export interface KafkaMessage {
   readonly topic: string
@@ -145,6 +145,145 @@ export const encodeMessagePayload = <A>(
     schema,
     isKey: location === "key"
   })(value)
+
+export interface KafkaAvroService {
+  readonly registrySerializer: <A>(
+    options: RegistrySerializerOptions
+  ) => (value: A) => Effect.Effect<Uint8Array, Registry.SchemaRegistryError | Avro.AvroError | KafkaAvroError>
+  readonly registryKeySerializer: <A>(
+    options: Omit<RegistrySerializerOptions, "isKey">
+  ) => (value: A) => Effect.Effect<Uint8Array, Registry.SchemaRegistryError | Avro.AvroError | KafkaAvroError>
+  readonly registryValueSerializer: <A>(
+    options: Omit<RegistrySerializerOptions, "isKey">
+  ) => (value: A) => Effect.Effect<Uint8Array, Registry.SchemaRegistryError | Avro.AvroError | KafkaAvroError>
+  readonly registryDeserializer: <A = unknown>(
+    options?: Avro.ParseOptions
+  ) => (payload: Uint8Array) => Effect.Effect<A, Registry.SchemaRegistryError | Avro.AvroError>
+  readonly registryKeyDeserializer: <A = unknown>(
+    options?: Avro.ParseOptions
+  ) => (payload: Uint8Array) => Effect.Effect<A, Registry.SchemaRegistryError | Avro.AvroError>
+  readonly registryValueDeserializer: <A = unknown>(
+    options?: Avro.ParseOptions
+  ) => (payload: Uint8Array) => Effect.Effect<A, Registry.SchemaRegistryError | Avro.AvroError>
+  readonly decodeMessagePayload: <A = unknown>(
+    message: KafkaMessage,
+    location: KafkaPayloadLocation,
+    options?: Avro.ParseOptions
+  ) => Effect.Effect<A, Registry.SchemaRegistryError | Avro.AvroError | KafkaAvroError>
+  readonly decodeMessageKey: <A = unknown>(
+    message: KafkaMessage,
+    options?: Avro.ParseOptions
+  ) => Effect.Effect<A, Registry.SchemaRegistryError | Avro.AvroError | KafkaAvroError>
+  readonly decodeMessageValue: <A = unknown>(
+    message: KafkaMessage,
+    options?: Avro.ParseOptions
+  ) => Effect.Effect<A, Registry.SchemaRegistryError | Avro.AvroError | KafkaAvroError>
+  readonly encodeMessagePayload: <A>(
+    message: Pick<KafkaMessage, "topic">,
+    location: KafkaPayloadLocation,
+    schema: Avro.AvroSchema,
+    value: A,
+    options?: Omit<RegistrySerializerOptions, "topic" | "schema" | "isKey">
+  ) => Effect.Effect<Uint8Array, Registry.SchemaRegistryError | Avro.AvroError | KafkaAvroError>
+}
+
+export class KafkaAvro extends Context.Service<KafkaAvro, KafkaAvroService>()(
+  "@avro-effect/kafka/KafkaAvro"
+) {
+  static readonly layer: Layer.Layer<KafkaAvro, never, Registry.SchemaRegistry> = Layer.effect(
+    KafkaAvro,
+    Effect.gen(function*() {
+      const registry = yield* Registry.SchemaRegistry
+
+      return KafkaAvro.of({
+        registrySerializer: <A>(options: RegistrySerializerOptions) => registrySerializer<A>(registry, options),
+        registryKeySerializer: <A>(options: Omit<RegistrySerializerOptions, "isKey">) =>
+          registryKeySerializer<A>(registry, options),
+        registryValueSerializer: <A>(options: Omit<RegistrySerializerOptions, "isKey">) =>
+          registryValueSerializer<A>(registry, options),
+        registryDeserializer: <A = unknown>(options?: Avro.ParseOptions) =>
+          registryDeserializer<A>(registry, options),
+        registryKeyDeserializer: <A = unknown>(options?: Avro.ParseOptions) =>
+          registryKeyDeserializer<A>(registry, options),
+        registryValueDeserializer: <A = unknown>(options?: Avro.ParseOptions) =>
+          registryValueDeserializer<A>(registry, options),
+        decodeMessagePayload: <A = unknown>(
+          message: KafkaMessage,
+          location: KafkaPayloadLocation,
+          options?: Avro.ParseOptions
+        ) =>
+          decodeMessagePayload<A>(registry, message, location, options),
+        decodeMessageKey: <A = unknown>(message: KafkaMessage, options?: Avro.ParseOptions) =>
+          decodeMessageKey<A>(registry, message, options),
+        decodeMessageValue: <A = unknown>(message: KafkaMessage, options?: Avro.ParseOptions) =>
+          decodeMessageValue<A>(registry, message, options),
+        encodeMessagePayload: <A>(
+          message: Pick<KafkaMessage, "topic">,
+          location: KafkaPayloadLocation,
+          schema: Avro.AvroSchema,
+          value: A,
+          options: Omit<RegistrySerializerOptions, "topic" | "schema" | "isKey"> = {}
+        ) =>
+          encodeMessagePayload<A>(registry, message, location, schema, value, options)
+      })
+    })
+  )
+}
+
+export const serializeRegistry = <A>(
+  options: RegistrySerializerOptions,
+  value: A
+): Effect.Effect<Uint8Array, Registry.SchemaRegistryError | Avro.AvroError | KafkaAvroError, KafkaAvro> =>
+  KafkaAvro.use((kafka) => kafka.registrySerializer<A>(options)(value))
+
+export const serializeRegistryKey = <A>(
+  options: Omit<RegistrySerializerOptions, "isKey">,
+  value: A
+): Effect.Effect<Uint8Array, Registry.SchemaRegistryError | Avro.AvroError | KafkaAvroError, KafkaAvro> =>
+  KafkaAvro.use((kafka) => kafka.registryKeySerializer<A>(options)(value))
+
+export const serializeRegistryValue = <A>(
+  options: Omit<RegistrySerializerOptions, "isKey">,
+  value: A
+): Effect.Effect<Uint8Array, Registry.SchemaRegistryError | Avro.AvroError | KafkaAvroError, KafkaAvro> =>
+  KafkaAvro.use((kafka) => kafka.registryValueSerializer<A>(options)(value))
+
+export const deserializeRegistry = <A = unknown>(
+  payload: Uint8Array,
+  options?: Avro.ParseOptions
+): Effect.Effect<A, Registry.SchemaRegistryError | Avro.AvroError, KafkaAvro> =>
+  KafkaAvro.use((kafka) => kafka.registryDeserializer<A>(options)(payload))
+
+export const deserializeRegistryKey = deserializeRegistry
+export const deserializeRegistryValue = deserializeRegistry
+
+export const decodeKey = <A = unknown>(
+  message: KafkaMessage,
+  options?: Avro.ParseOptions
+): Effect.Effect<A, Registry.SchemaRegistryError | Avro.AvroError | KafkaAvroError, KafkaAvro> =>
+  KafkaAvro.use((kafka) => kafka.decodeMessageKey<A>(message, options))
+
+export const decodeValue = <A = unknown>(
+  message: KafkaMessage,
+  options?: Avro.ParseOptions
+): Effect.Effect<A, Registry.SchemaRegistryError | Avro.AvroError | KafkaAvroError, KafkaAvro> =>
+  KafkaAvro.use((kafka) => kafka.decodeMessageValue<A>(message, options))
+
+export const encodeKey = <A>(
+  message: Pick<KafkaMessage, "topic">,
+  schema: Avro.AvroSchema,
+  value: A,
+  options?: Omit<RegistrySerializerOptions, "topic" | "schema" | "isKey">
+): Effect.Effect<Uint8Array, Registry.SchemaRegistryError | Avro.AvroError | KafkaAvroError, KafkaAvro> =>
+  KafkaAvro.use((kafka) => kafka.encodeMessagePayload(message, "key", schema, value, options))
+
+export const encodeValue = <A>(
+  message: Pick<KafkaMessage, "topic">,
+  schema: Avro.AvroSchema,
+  value: A,
+  options?: Omit<RegistrySerializerOptions, "topic" | "schema" | "isKey">
+): Effect.Effect<Uint8Array, Registry.SchemaRegistryError | Avro.AvroError | KafkaAvroError, KafkaAvro> =>
+  KafkaAvro.use((kafka) => kafka.encodeMessagePayload(message, "value", schema, value, options))
 
 const resolveSubject = (options: RegistrySerializerOptions): string => {
   if (options.subject !== undefined) {

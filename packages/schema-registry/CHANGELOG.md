@@ -8,3 +8,4 @@ Initial release.
 - Add Confluent Avro wire frame encode/decode helpers.
 - Add subject naming strategies.
 - Add registry-backed Avro encode/decode helpers.
+- Add `SchemaRegistry` service, layer, and service accessor helpers.
