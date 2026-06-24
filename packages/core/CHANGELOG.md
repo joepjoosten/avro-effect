@@ -10,3 +10,4 @@ Initial release.
 - Add Effect-native encode/decode helpers.
 - Add partial decode helpers for object-container block readers.
 - Add browser-friendly `toUint8Array` and `fromUint8Array` type methods.
+- Add schema-backed `AvroError` tagged errors.

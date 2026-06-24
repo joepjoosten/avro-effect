@@ -5,6 +5,7 @@ import * as Os from "node:os"
 import * as Path from "node:path"
 import { Effect, FileSystem, PlatformError } from "effect"
 import {
+  AvroContainerError,
   AvroNode,
   decodeContainer,
   encodeContainer,
@@ -48,6 +49,17 @@ describe("@avro-effect/node", () => {
 
     expect(decodeContainer(buffer).values).toEqual(values)
   })
+
+  it.effect("exposes container errors as tagged errors", () =>
+    Effect.try({
+      try: () => decodeContainer(new Uint8Array()),
+      catch: (error) => error as AvroContainerError
+    }).pipe(
+      Effect.catchTag("AvroContainerError", (error) => Effect.succeed(error._tag)),
+      Effect.map((tag) => {
+        expect(tag).toBe("AvroContainerError")
+      })
+    ))
 
   it.effect("writes and reads files", () =>
     Effect.gen(function*() {

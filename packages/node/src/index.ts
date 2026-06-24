@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto"
 import * as Fs from "node:fs/promises"
 import * as Zlib from "node:zlib"
 import * as Avro from "@avro-effect/core"
-import { Context, Effect, FileSystem, Layer, PlatformError } from "effect"
+import { Context, Effect, FileSystem, Layer, PlatformError, Schema } from "effect"
 
 export type ContainerCodec = "null" | "deflate"
 
@@ -23,15 +23,10 @@ export interface ContainerFile<A = unknown> {
   readonly values: ReadonlyArray<A>
 }
 
-export class AvroContainerError extends Error {
-  readonly cause?: unknown
-
-  constructor(message: string, cause?: unknown) {
-    super(message)
-    this.name = "AvroContainerError"
-    this.cause = cause
-  }
-}
+export class AvroContainerError extends Schema.TaggedErrorClass<AvroContainerError>()("AvroContainerError", {
+  message: Schema.String,
+  cause: Schema.optional(Schema.Defect())
+}) {}
 
 export interface AvroNodeService {
   readonly writeContainerFile: <A>(
@@ -92,11 +87,11 @@ export const encodeContainer = <A>(
   const codec = options.codec ?? "null"
   const syncMarker = options.syncMarker === undefined ? randomBytes(syncMarkerSize) : toBuffer(options.syncMarker)
   if (syncMarker.length !== syncMarkerSize) {
-    throw new AvroContainerError(`Avro sync marker must be ${syncMarkerSize} bytes`)
+    throw avroContainerError(`Avro sync marker must be ${syncMarkerSize} bytes`)
   }
   const blockSize = options.blockSize ?? 1000
   if (!Number.isInteger(blockSize) || blockSize <= 0) {
-    throw new AvroContainerError(`Avro block size must be a positive integer, got ${blockSize}`)
+    throw avroContainerError(`Avro block size must be a positive integer, got ${blockSize}`)
   }
 
   const metadata = normalizeMetadata(options.metadata)
@@ -131,12 +126,12 @@ export const decodeContainer = <A = unknown>(
   const reader = new BinaryReader(Buffer.from(input))
   const actualMagic = reader.readFixed(magic.length)
   if (!actualMagic.equals(magic)) {
-    throw new AvroContainerError("Invalid Avro object container magic header")
+    throw avroContainerError("Invalid Avro object container magic header")
   }
   const metadata = readMetadata(reader)
   const schemaText = metadata[schemaMetadataKey]?.toString("utf8")
   if (schemaText === undefined) {
-    throw new AvroContainerError("Avro object container is missing avro.schema metadata")
+    throw avroContainerError("Avro object container is missing avro.schema metadata")
   }
   const schema = parseSchema(schemaText)
   const codec = parseCodec(metadata[codecMetadataKey]?.toString("utf8") ?? "null")
@@ -147,11 +142,11 @@ export const decodeContainer = <A = unknown>(
   while (!reader.done) {
     const count = reader.readLong()
     if (count <= 0) {
-      throw new AvroContainerError(`Invalid Avro object container block count ${count}`)
+      throw avroContainerError(`Invalid Avro object container block count ${count}`)
     }
     const size = reader.readLong()
     if (size < 0) {
-      throw new AvroContainerError(`Invalid Avro object container block size ${size}`)
+      throw avroContainerError(`Invalid Avro object container block size ${size}`)
     }
     const compressedBlock = reader.readFixed(size)
     const block = decodeBlock(codec, compressedBlock)
@@ -162,11 +157,11 @@ export const decodeContainer = <A = unknown>(
       offset = decoded.offset
     }
     if (offset !== block.length) {
-      throw new AvroContainerError("Avro object container block contains trailing bytes")
+      throw avroContainerError("Avro object container block contains trailing bytes")
     }
     const blockSyncMarker = reader.readFixed(syncMarkerSize)
     if (!blockSyncMarker.equals(syncMarker)) {
-      throw new AvroContainerError("Avro object container sync marker mismatch")
+      throw avroContainerError("Avro object container sync marker mismatch")
     }
   }
 
@@ -213,7 +208,7 @@ export const readContainerIterable = <A = unknown>(
     },
     catch: (error) => error instanceof AvroContainerError
       ? error
-      : new AvroContainerError(`Unable to read Avro container stream: ${message(error)}`, error)
+      : avroContainerError(`Unable to read Avro container stream: ${message(error)}`, error)
   })
 
 export const makeAvroNode = (fs: FileSystem.FileSystem): AvroNodeService => ({
@@ -221,7 +216,7 @@ export const makeAvroNode = (fs: FileSystem.FileSystem): AvroNodeService => ({
     Effect.gen(function*() {
       const bytes = yield* Effect.try({
         try: () => encodeContainer(schema, values, options),
-        catch: (error) => new AvroContainerError(`Unable to encode Avro container file: ${message(error)}`, error)
+        catch: (error) => avroContainerError(`Unable to encode Avro container file: ${message(error)}`, error)
       })
       yield* fs.writeFile(path, bytes)
     }),
@@ -232,7 +227,7 @@ export const makeAvroNode = (fs: FileSystem.FileSystem): AvroNodeService => ({
         try: () => decodeContainer<A>(bytes, options),
         catch: (error) => error instanceof AvroContainerError
           ? error
-          : new AvroContainerError(`Unable to decode Avro container file: ${message(error)}`, error)
+          : avroContainerError(`Unable to decode Avro container file: ${message(error)}`, error)
       })
     }),
   readContainerIterable
@@ -332,7 +327,7 @@ const parseSchema = (text: string): Avro.AvroSchema => {
   try {
     return JSON.parse(text) as Avro.AvroSchema
   } catch (error) {
-    throw new AvroContainerError(`Unable to parse Avro object container schema: ${message(error)}`, error)
+    throw avroContainerError(`Unable to parse Avro object container schema: ${message(error)}`, error)
   }
 }
 
@@ -340,7 +335,7 @@ const parseCodec = (codec: string): ContainerCodec => {
   if (codec === "null" || codec === "deflate") {
     return codec
   }
-  throw new AvroContainerError(`Unsupported Avro object container codec ${JSON.stringify(codec)}`)
+  throw avroContainerError(`Unsupported Avro object container codec ${JSON.stringify(codec)}`)
 }
 
 class BinaryWriter {
@@ -348,7 +343,7 @@ class BinaryWriter {
 
   writeLong(value: number) {
     if (!Number.isSafeInteger(value)) {
-      throw new AvroContainerError(`Avro long value is outside the JavaScript safe integer range: ${value}`)
+      throw avroContainerError(`Avro long value is outside the JavaScript safe integer range: ${value}`)
     }
     let encoded = (BigInt(value) << 1n) ^ (BigInt(value) >> 63n)
     const bytes: Array<number> = []
@@ -401,13 +396,13 @@ class BinaryReader {
       }
       shift += 7n
       if (shift > 63n) {
-        throw new AvroContainerError("Invalid Avro variable-length integer")
+        throw avroContainerError("Invalid Avro variable-length integer")
       }
     }
     const decoded = (value >> 1n) ^ -(value & 1n)
     const number = Number(decoded)
     if (!Number.isSafeInteger(number)) {
-      throw new AvroContainerError(`Decoded Avro long is outside the JavaScript safe integer range: ${decoded}`)
+      throw avroContainerError(`Decoded Avro long is outside the JavaScript safe integer range: ${decoded}`)
     }
     return number
   }
@@ -415,7 +410,7 @@ class BinaryReader {
   readBytes(): Buffer {
     const size = this.readLong()
     if (size < 0) {
-      throw new AvroContainerError(`Invalid negative bytes length ${size}`)
+      throw avroContainerError(`Invalid negative bytes length ${size}`)
     }
     return this.readFixed(size)
   }
@@ -438,7 +433,7 @@ class BinaryReader {
 
   private ensure(bytes: number) {
     if (this.offset + bytes > this.buffer.length) {
-      throw new AvroContainerError("Truncated Avro object container data")
+      throw avroContainerError("Truncated Avro object container data")
     }
   }
 }
@@ -454,5 +449,8 @@ const nodePlatformError = (method: string, path: string | URL, cause: unknown) =
     pathOrDescriptor: String(path),
     cause
   })
+
+const avroContainerError = (message: string, cause?: unknown): AvroContainerError =>
+  cause === undefined ? new AvroContainerError({ message }) : new AvroContainerError({ message, cause })
 
 const message = (error: unknown): string => error instanceof Error ? error.message : String(error)

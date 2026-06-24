@@ -143,15 +143,10 @@ export const avroAnnotations = (annotations: Record<string, unknown>) =>
   <S extends Schema.Constraint>(schema: S): S =>
     Schema.annotate(annotations)(schema as unknown as Schema.Top) as unknown as S
 
-class AvroSchemaError extends Error {
-  readonly cause?: unknown
-
-  constructor(message: string, cause?: unknown) {
-    super(message)
-    this.name = "AvroSchemaError"
-    this.cause = cause
-  }
-}
+class AvroSchemaError extends Schema.TaggedErrorClass<AvroSchemaError>()("AvroSchemaError", {
+  message: Schema.String,
+  cause: Schema.optional(Schema.Defect())
+}) {}
 
 interface CompileState {
   readonly options: Required<Pick<ToAvroOptions, "omitTags">> & Omit<ToAvroOptions, "omitTags">
@@ -243,6 +238,9 @@ export const fromAvroSchema = (
 const avroIssue = (input: unknown, text: string) =>
   new SchemaIssue.InvalidValue(Option.some(input), { message: text })
 
+const avroSchemaError = (message: string, cause?: unknown): AvroSchemaError =>
+  cause === undefined ? new AvroSchemaError({ message }) : new AvroSchemaError({ message, cause })
+
 const message = (error: unknown): string => error instanceof Error ? error.message : String(error)
 
 const schemaIdentifier = (schema: Schema.Constraint): string | undefined => {
@@ -309,7 +307,7 @@ const compileAnnotatedType = (
       const name = resolveName(ast, state, path)
       const size = SchemaAST.resolveAt<number>(AvroFixedSizeAnnotationId)(ast)
       if (typeof size !== "number" || !Number.isInteger(size) || size <= 0) {
-        throw new AvroSchemaError(`Fixed type ${name.fullName} requires a positive integer fixed size`)
+        throw avroSchemaError(`Fixed type ${name.fullName} requires a positive integer fixed size`)
       }
       const fixed: AvroFixedSchema = {
         type: "fixed",
@@ -320,7 +318,7 @@ const compileAnnotatedType = (
       return withLogicalAnnotations(ast, fixed)
     }
     default:
-      throw new AvroSchemaError(`Unsupported Avro type annotation ${JSON.stringify(annotatedType)}`)
+      throw avroSchemaError(`Unsupported Avro type annotation ${JSON.stringify(annotatedType)}`)
   }
 }
 
@@ -393,7 +391,7 @@ const compileArrayAst = (
   path: ReadonlyArray<string>
 ): AvroSchema => {
   if (ast.elements.length > 0 || ast.rest.length !== 1) {
-    throw new AvroSchemaError(`Avro arrays must be homogeneous at ${formatPath(path)}`)
+    throw avroSchemaError(`Avro arrays must be homogeneous at ${formatPath(path)}`)
   }
   return {
     type: "array",
@@ -410,14 +408,14 @@ const compileObjectAst = (
     if (ast.propertySignatures.length === 0 && ast.indexSignatures.length === 1) {
       const index = ast.indexSignatures[0]
       if (index.parameter._tag !== "String" && index.parameter._tag !== "TemplateLiteral") {
-        throw new AvroSchemaError(`Avro maps require string keys at ${formatPath(path)}`)
+        throw avroSchemaError(`Avro maps require string keys at ${formatPath(path)}`)
       }
       return {
         type: "map",
         values: compileAst(index.type, state, [...path, "Value"])
       }
     }
-    throw new AvroSchemaError(`Avro records cannot mix fixed fields and index signatures at ${formatPath(path)}`)
+    throw avroSchemaError(`Avro records cannot mix fixed fields and index signatures at ${formatPath(path)}`)
   }
 
   const name = resolveName(ast, state, path)
@@ -429,7 +427,7 @@ const compileObjectAst = (
 
   const previousAst = state.astByName.get(name.fullName)
   if (previousAst !== undefined && previousAst !== ast) {
-    throw new AvroSchemaError(`Duplicate Avro name ${name.fullName}`)
+    throw avroSchemaError(`Duplicate Avro name ${name.fullName}`)
   }
   state.astByName.set(name.fullName, ast)
 
@@ -437,7 +435,7 @@ const compileObjectAst = (
   const fields: Array<AvroRecordField> = []
   for (const property of ast.propertySignatures) {
     if (typeof property.name !== "string") {
-      throw new AvroSchemaError(`Avro field names must be strings at ${formatPath(path)}`)
+      throw avroSchemaError(`Avro field names must be strings at ${formatPath(path)}`)
     }
     if (
       state.options.omitTags &&
@@ -630,7 +628,7 @@ const registerNamedSchema = (
 }
 
 const unsupported = (ast: SchemaAST.AST, path: ReadonlyArray<string>) =>
-  new AvroSchemaError(`Unsupported Effect Schema AST ${ast._tag} at ${formatPath(path)}`, ast)
+  avroSchemaError(`Unsupported Effect Schema AST ${ast._tag} at ${formatPath(path)}`, ast)
 
 const formatPath = (path: ReadonlyArray<string>) => path.join(".")
 
@@ -934,7 +932,7 @@ const buildRecordSchema = (schema: AvroRecordSchema, ctx: FromAvroContext): Sche
   lazy = Schema.suspend((): Schema.Constraint => {
     const resolved = ctx.schemas.get(name)
     if (resolved === undefined || resolved === lazy) {
-      throw new AvroSchemaError(`Unresolved recursive Avro schema ${name}`)
+      throw avroSchemaError(`Unresolved recursive Avro schema ${name}`)
     }
     return resolved
   })
@@ -987,7 +985,7 @@ const primitiveOrRef = (name: string, ctx: FromAvroContext): Schema.Constraint =
       return Schema.suspend(() => {
         const schema = ctx.schemas.get(name) ?? ctx.schemas.get(fullName(name, ctx.namespace))
         if (schema === undefined) {
-          throw new AvroSchemaError(`Unknown Avro type reference ${name}`)
+          throw avroSchemaError(`Unknown Avro type reference ${name}`)
         }
         return schema
       })

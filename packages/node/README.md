@@ -40,3 +40,4 @@ const program = Effect.gen(function*() {
 - `null` and raw `deflate` codecs.
 - Node-backed default filesystem layer plus `AvroNode.layerNoDeps` for custom runtimes and tests.
 - Async iterable reader for Node streams.
+- Schema-backed `AvroContainerError` tagged errors for `Effect.catchTag`.

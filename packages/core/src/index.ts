@@ -1,4 +1,4 @@
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 
 export type AvroPrimitive =
   | "null"
@@ -80,15 +80,10 @@ export type AvroSchema =
 
 type AvroObjectSchema = Exclude<AvroSchema, string | AvroUnionSchema>
 
-export class AvroError extends Error {
-  readonly cause?: unknown
-
-  constructor(message: string, cause?: unknown) {
-    super(message)
-    this.name = "AvroError"
-    this.cause = cause
-  }
-}
+export class AvroError extends Schema.TaggedErrorClass<AvroError>()("AvroError", {
+  message: Schema.String,
+  cause: Schema.optional(Schema.Defect())
+}) {}
 
 export interface Type<A = unknown> {
   readonly schema: AvroSchema
@@ -170,7 +165,7 @@ export const parse = <A = unknown>(schema: AvroSchema, options: ParseOptions = {
       const reader = new BinaryReader(input)
       const value = readNode(resolveNode(node), reader) as A
       if (!reader.done) {
-        throw new AvroError(`Trailing Avro data at offset ${reader.offset}`)
+        throw avroError(`Trailing Avro data at offset ${reader.offset}`)
       }
       return value
     },
@@ -216,13 +211,13 @@ export const decodePartial = <A = unknown>(
 export const encodeEffect = <A>(schema: AvroSchema, value: A, options?: ParseOptions) =>
   Effect.try({
     try: () => encode(schema, value, options),
-    catch: (error) => new AvroError(`Unable to encode Avro value: ${message(error)}`, error)
+    catch: (error) => avroError(`Unable to encode Avro value: ${message(error)}`, error)
   })
 
 export const decodeEffect = <A = unknown>(schema: AvroSchema, buffer: Uint8Array, options?: ParseOptions) =>
   Effect.try({
     try: () => decode<A>(schema, buffer, options),
-    catch: (error) => new AvroError(`Unable to decode Avro value: ${message(error)}`, error)
+    catch: (error) => avroError(`Unable to decode Avro value: ${message(error)}`, error)
   })
 
 const compile = (schema: AvroSchema, registry: Registry, namespace: string | undefined): Node => {
@@ -347,7 +342,7 @@ const resolveNode = (node: Node): Node => {
     node.registry.nodes.get(unqualified(node.name)) ??
     (alias === undefined ? undefined : node.registry.nodes.get(alias))
   if (resolved === undefined) {
-    throw new AvroError(`Unknown Avro type reference ${node.name}`)
+    throw avroError(`Unknown Avro type reference ${node.name}`)
   }
   return resolved
 }
@@ -377,7 +372,7 @@ const readNode = (node: Node, reader: BinaryReader): unknown => {
       const index = reader.readLong()
       const symbol = node.symbols[index]
       if (symbol === undefined) {
-        throw new AvroError(`Invalid enum index ${index} for ${node.name}`)
+        throw avroError(`Invalid enum index ${index} for ${node.name}`)
       }
       return symbol
     }
@@ -410,7 +405,7 @@ const readNode = (node: Node, reader: BinaryReader): unknown => {
       const index = reader.readLong()
       const branch = node.branches[index]
       if (branch === undefined) {
-        throw new AvroError(`Invalid union branch index ${index}`)
+        throw avroError(`Invalid union branch index ${index}`)
       }
       return readNode(branch, reader)
     }
@@ -604,7 +599,7 @@ class BinaryWriter {
 
   writeLong(value: number) {
     if (!Number.isSafeInteger(value)) {
-      throw new AvroError(`Avro long value is outside the JavaScript safe integer range: ${value}`)
+      throw avroError(`Avro long value is outside the JavaScript safe integer range: ${value}`)
     }
     let encoded = (BigInt(value) << 1n) ^ (BigInt(value) >> 63n)
     const bytes: Array<number> = []
@@ -635,7 +630,7 @@ class BinaryWriter {
 
   writeFixed(value: Uint8Array, size: number) {
     if (value.length !== size) {
-      throw new AvroError(`Expected fixed value of size ${size}, got ${value.length}`)
+      throw avroError(`Expected fixed value of size ${size}, got ${value.length}`)
     }
     this.chunks.push(value)
   }
@@ -678,13 +673,13 @@ class BinaryReader {
       }
       shift += 7n
       if (shift > 63n) {
-        throw new AvroError("Invalid Avro variable-length integer")
+        throw avroError("Invalid Avro variable-length integer")
       }
     }
     const decoded = (value >> 1n) ^ -(value & 1n)
     const number = Number(decoded)
     if (!Number.isSafeInteger(number)) {
-      throw new AvroError(`Decoded Avro long is outside the JavaScript safe integer range: ${decoded}`)
+      throw avroError(`Decoded Avro long is outside the JavaScript safe integer range: ${decoded}`)
     }
     return number
   }
@@ -706,7 +701,7 @@ class BinaryReader {
   readBytes(): Uint8Array {
     const length = this.readLong()
     if (length < 0) {
-      throw new AvroError(`Invalid negative bytes length ${length}`)
+      throw avroError(`Invalid negative bytes length ${length}`)
     }
     return this.readFixed(length)
   }
@@ -724,7 +719,7 @@ class BinaryReader {
 
   private ensure(bytes: number) {
     if (this.offset + bytes > this.buffer.length) {
-      throw new AvroError("Truncated Avro buffer")
+      throw avroError("Truncated Avro buffer")
     }
   }
 }
@@ -733,7 +728,7 @@ const toBuffer = (value: unknown, label: string): Uint8Array => {
   if (value instanceof Uint8Array) {
     return value
   }
-  throw new AvroError(`Expected ${label} to be Uint8Array`)
+  throw avroError(`Expected ${label} to be Uint8Array`)
 }
 
 const concatBytes = (chunks: ReadonlyArray<Uint8Array>): Uint8Array => {
@@ -748,7 +743,10 @@ const concatBytes = (chunks: ReadonlyArray<Uint8Array>): Uint8Array => {
 }
 
 const expected = (node: Node, value: unknown) =>
-  new AvroError(`Expected Avro ${node._tag}, got ${JSON.stringify(value)}`)
+  avroError(`Expected Avro ${node._tag}, got ${JSON.stringify(value)}`)
+
+const avroError = (message: string, cause?: unknown): AvroError =>
+  cause === undefined ? new AvroError({ message }) : new AvroError({ message, cause })
 
 const isRecordLike = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value)

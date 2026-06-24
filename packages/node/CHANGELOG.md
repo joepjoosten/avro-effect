@@ -9,3 +9,4 @@ Initial release.
 - Add Effect file read/write helpers.
 - Add async iterable container reader helper.
 - Add `AvroNode` service, default Node layer, and custom `layerNoDeps` support.
+- Add schema-backed `AvroContainerError` tagged errors.

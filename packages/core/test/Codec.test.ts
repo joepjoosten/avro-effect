@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
-import { decode, encode, parse } from "../src/index.js"
+import { Effect } from "effect"
+import { decode, encode, encodeEffect, parse } from "../src/index.js"
 
 describe("@avro-effect/core", () => {
   it("encodes and decodes primitives", () => {
@@ -65,4 +66,12 @@ describe("@avro-effect/core", () => {
 
     expect(decoded).toEqual({ value: "a", offset: first.length })
   })
+
+  it.effect("exposes Avro errors as tagged errors", () =>
+    encodeEffect("string", 1).pipe(
+      Effect.catchTag("AvroError", (error) => Effect.succeed(error._tag)),
+      Effect.map((tag) => {
+        expect(tag).toBe("AvroError")
+      })
+    ))
 })

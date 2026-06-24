@@ -8,3 +8,4 @@ Initial release.
 - Add Schema Registry backed Kafka key/value serializers.
 - Add Kafka message key/value decode helpers with contextual errors.
 - Add `KafkaAvro` service and layer for composing with `SchemaRegistry`.
+- Add schema-backed `KafkaAvroError` tagged errors.

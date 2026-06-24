@@ -7,6 +7,7 @@ import {
   decodeValue,
   decodeMessageValue,
   KafkaAvro,
+  KafkaAvroError,
   serializeRegistryValue,
   registryValueSerializer
 } from "../src/index.js"
@@ -56,6 +57,21 @@ describe("@avro-effect/kafka", () => {
         { method: "POST", path: "/subjects/events-value/versions" }
       ])
     }))
+
+  it.effect("exposes Kafka errors as tagged errors", () => {
+    const client = makeClient({
+      endpoint: "http://registry.test",
+      fetch: async () => new Response("not found", { status: 404 })
+    })
+
+    return decodeMessageValue(client, { topic: "events", value: null }).pipe(
+      Effect.catchTag("KafkaAvroError", (error: KafkaAvroError) => Effect.succeed(error.location)),
+      Effect.catch(() => Effect.succeed(undefined)),
+      Effect.map((location) => {
+        expect(location).toBe("value")
+      })
+    )
+  })
 
   it.effect("composes KafkaAvro with SchemaRegistry layers", () => {
     const requests: Array<{ readonly method: string; readonly path: string }> = []

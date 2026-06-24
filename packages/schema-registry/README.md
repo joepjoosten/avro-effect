@@ -47,3 +47,4 @@ const program = Effect.gen(function*() {
 - Basic auth and bearer token support.
 - In-memory schema id and subject/schema caches.
 - Lower-level `makeClient`, `encodeWithRegistry`, and `decodeWithRegistry` helpers for custom adapters.
+- Schema-backed `SchemaRegistryError`, `SchemaRegistryHttpError`, and `InvalidRegistryFrame` tagged errors.

@@ -7,6 +7,7 @@ import {
   encode,
   encodeConfluentFrame,
   encodeWithRegistry,
+  InvalidRegistryFrame,
   makeClient,
   SchemaRegistry,
   subjectName
@@ -36,6 +37,17 @@ describe("@avro-effect/schema-registry", () => {
     expect(subjectName("RecordNameStrategy", { topic: "events", schema })).toBe("example.Event")
     expect(subjectName("TopicRecordNameStrategy", { topic: "events", schema })).toBe("events-example.Event")
   })
+
+  it.effect("exposes frame errors as tagged errors", () =>
+    Effect.try({
+      try: () => decodeConfluentFrame(new Uint8Array()),
+      catch: (error) => error as InvalidRegistryFrame
+    }).pipe(
+      Effect.catchTag("InvalidRegistryFrame", (error) => Effect.succeed(error._tag)),
+      Effect.map((tag) => {
+        expect(tag).toBe("InvalidRegistryFrame")
+      })
+    ))
 
   it.effect("registers schemas and decodes by schema id", () =>
     Effect.gen(function*() {

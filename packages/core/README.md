@@ -42,3 +42,4 @@ const decoded = decode(schema, bytes)
 - Plain union values rather than wrapper objects
 - Partial decode support for block-oriented readers
 - `Effect.try` based `encodeEffect` and `decodeEffect` helpers
+- Schema-backed `AvroError` tagged errors for `Effect.catchTag`

@@ -9,3 +9,4 @@ Initial release.
 - Add subject naming strategies.
 - Add registry-backed Avro encode/decode helpers.
 - Add `SchemaRegistry` service, layer, and service accessor helpers.
+- Add schema-backed tagged errors for registry, HTTP, and frame failures.

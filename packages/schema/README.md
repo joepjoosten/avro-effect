@@ -40,3 +40,4 @@ const Imported = fromAvroSchema(avroJson)
 - Produce a `Schema.Codec<A, Uint8Array>` for Avro binary payloads
 - Support records, enums, arrays, maps, unions, nullable fields, recursive references, bytes, fixed values, and logical type annotations
 - Omit tagged class `_tag` fields from Avro records while restoring them after decoding
+- Schema-backed internal conversion errors for consistent Effect error reporting

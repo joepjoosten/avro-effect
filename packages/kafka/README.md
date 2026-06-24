@@ -48,3 +48,4 @@ const program = Effect.gen(function*() {
 - Topic, record, and topic-record subject naming strategies.
 - Contextual decode errors that include topic, partition, offset, and key/value location.
 - Lower-level helpers stay Kafka-client agnostic and accept a `SchemaRegistryClient` directly.
+- Schema-backed `KafkaAvroError` tagged errors for `Effect.catchTag`.
