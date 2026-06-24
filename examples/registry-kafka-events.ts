@@ -29,11 +29,18 @@ export class OrderEventDecodeError extends Schema.TaggedErrorClass<OrderEventDec
   cause: Schema.optional(Schema.Defect())
 }) {}
 
-export interface OrderKafkaMessage extends KafkaMessage {
-  readonly topic: typeof orderTopic
-  readonly key: Uint8Array
-  readonly value: Uint8Array
-}
+export const OrderKafkaMessage = Schema.Struct({
+  topic: Schema.Literal(orderTopic),
+  partition: Schema.optionalKey(Schema.Number),
+  offset: Schema.optionalKey(Schema.Union([Schema.String, Schema.Number])),
+  key: Schema.Uint8Array,
+  value: Schema.Uint8Array,
+  headers: Schema.optionalKey(Schema.Record(
+    Schema.String,
+    Schema.Union([Schema.Uint8Array, Schema.String, Schema.Undefined])
+  ))
+})
+export type OrderKafkaMessage = typeof OrderKafkaMessage.Type
 
 const textEncoder = new TextEncoder()
 

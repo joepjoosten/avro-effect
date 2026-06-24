@@ -1,7 +1,15 @@
 import type { AvroSchema } from "@avro-effect/core"
 import type { FetchLike } from "@avro-effect/schema-registry"
+import { Schema } from "effect"
 
-export interface StoredSchema {
+export const StoredSchema = Schema.Struct({
+  id: Schema.Number,
+  subject: Schema.String,
+  version: Schema.Number,
+  schema: Schema.Defect(),
+  schemaText: Schema.String
+})
+export type StoredSchema = Omit<typeof StoredSchema.Type, "schema"> & {
   readonly id: number
   readonly subject: string
   readonly version: number
@@ -9,7 +17,7 @@ export interface StoredSchema {
   readonly schemaText: string
 }
 
-export interface InMemorySchemaRegistry {
+export type InMemorySchemaRegistry = {
   readonly fetch: FetchLike
   readonly byId: ReadonlyMap<number, StoredSchema>
 }

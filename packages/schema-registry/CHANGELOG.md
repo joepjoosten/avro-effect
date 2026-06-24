@@ -5,6 +5,7 @@
 Initial release.
 
 - Add Confluent Schema Registry HTTP client.
+- Add Effect Schema values for registry requests, responses, frames, auth, and subject naming input.
 - Add Confluent Avro wire frame encode/decode helpers.
 - Add subject naming strategies.
 - Add registry-backed Avro encode/decode helpers.

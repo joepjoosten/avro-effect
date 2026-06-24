@@ -36,6 +36,7 @@ const decoded = decode(schema, bytes)
 ## Features
 
 - Avro schema model types
+- Effect Schema values for Avro schema model types
 - Native Avro binary encoder and decoder using platform-neutral `Uint8Array`
 - Primitive, record, enum, array, map, union, bytes, fixed, and logical type schema support
 - Named type, alias, namespace, and recursive reference handling

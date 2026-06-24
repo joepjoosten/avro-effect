@@ -15,5 +15,6 @@ Initial release.
 - Add `@avro-effect/node`, Node.js Avro object-container file helpers.
 - Add Effect service and layer APIs for Schema Registry, Kafka Avro, and Node object-container workflows.
 - Add schema-backed tagged errors for `Effect.catchTag` based error handling.
+- Export public data models as Effect Schema values with matching TypeScript types.
 - Add type-checked examples for Schema Registry, Effect Schema, Kafka events, schema evolution, dead-letter handling, and Node archives.
 - Add package build, tests, and GitHub Actions Changesets release/snapshot workflows.

@@ -1,16 +1,18 @@
 import { Effect, Schema } from "effect"
 
-export type AvroPrimitive =
-  | "null"
-  | "boolean"
-  | "int"
-  | "long"
-  | "float"
-  | "double"
-  | "bytes"
-  | "string"
+export const AvroPrimitive = Schema.Literals([
+  "null",
+  "boolean",
+  "int",
+  "long",
+  "float",
+  "double",
+  "bytes",
+  "string"
+])
+export type AvroPrimitive = typeof AvroPrimitive.Type
 
-export interface AvroRecordField {
+export type AvroRecordField = {
   readonly name: string
   readonly type: AvroSchema
   readonly doc?: string
@@ -19,7 +21,7 @@ export interface AvroRecordField {
   readonly aliases?: ReadonlyArray<string>
 }
 
-export interface AvroRecordSchema {
+export type AvroRecordSchema = {
   readonly type: "record" | "error"
   readonly name: string
   readonly namespace?: string
@@ -29,7 +31,7 @@ export interface AvroRecordSchema {
   readonly [key: string]: unknown
 }
 
-export interface AvroEnumSchema {
+export type AvroEnumSchema = {
   readonly type: "enum"
   readonly name: string
   readonly namespace?: string
@@ -39,17 +41,17 @@ export interface AvroEnumSchema {
   readonly default?: string
 }
 
-export interface AvroArraySchema {
+export type AvroArraySchema = {
   readonly type: "array"
   readonly items: AvroSchema
 }
 
-export interface AvroMapSchema {
+export type AvroMapSchema = {
   readonly type: "map"
   readonly values: AvroSchema
 }
 
-export interface AvroFixedSchema {
+export type AvroFixedSchema = {
   readonly type: "fixed"
   readonly name: string
   readonly namespace?: string
@@ -58,7 +60,7 @@ export interface AvroFixedSchema {
   readonly logicalType?: string
 }
 
-export interface AvroLogicalSchema {
+export type AvroLogicalSchema = {
   readonly type: AvroSchema
   readonly logicalType: string
   readonly precision?: number
@@ -77,6 +79,73 @@ export type AvroSchema =
   | AvroFixedSchema
   | AvroLogicalSchema
   | AvroUnionSchema
+
+export const AvroRecordField: Schema.Schema<AvroRecordField> = Schema.Struct({
+  name: Schema.String,
+  type: Schema.suspend((): Schema.Schema<AvroSchema> => AvroSchema),
+  doc: Schema.optionalKey(Schema.String),
+  default: Schema.optionalKey(Schema.Unknown),
+  order: Schema.optionalKey(Schema.Literals(["ascending", "descending", "ignore"])),
+  aliases: Schema.optionalKey(Schema.Array(Schema.String))
+}) as Schema.Schema<AvroRecordField>
+
+export const AvroRecordSchema: Schema.Schema<AvroRecordSchema> = Schema.Struct({
+  type: Schema.Literals(["record", "error"]),
+  name: Schema.String,
+  namespace: Schema.optionalKey(Schema.String),
+  doc: Schema.optionalKey(Schema.String),
+  aliases: Schema.optionalKey(Schema.Array(Schema.String)),
+  fields: Schema.Array(AvroRecordField)
+}) as Schema.Schema<AvroRecordSchema>
+
+export const AvroEnumSchema: Schema.Schema<AvroEnumSchema> = Schema.Struct({
+  type: Schema.Literal("enum"),
+  name: Schema.String,
+  namespace: Schema.optionalKey(Schema.String),
+  doc: Schema.optionalKey(Schema.String),
+  aliases: Schema.optionalKey(Schema.Array(Schema.String)),
+  symbols: Schema.Array(Schema.String),
+  default: Schema.optionalKey(Schema.String)
+}) as Schema.Schema<AvroEnumSchema>
+
+export const AvroArraySchema: Schema.Schema<AvroArraySchema> = Schema.Struct({
+  type: Schema.Literal("array"),
+  items: Schema.suspend((): Schema.Schema<AvroSchema> => AvroSchema)
+}) as Schema.Schema<AvroArraySchema>
+
+export const AvroMapSchema: Schema.Schema<AvroMapSchema> = Schema.Struct({
+  type: Schema.Literal("map"),
+  values: Schema.suspend((): Schema.Schema<AvroSchema> => AvroSchema)
+}) as Schema.Schema<AvroMapSchema>
+
+export const AvroFixedSchema: Schema.Schema<AvroFixedSchema> = Schema.Struct({
+  type: Schema.Literal("fixed"),
+  name: Schema.String,
+  namespace: Schema.optionalKey(Schema.String),
+  aliases: Schema.optionalKey(Schema.Array(Schema.String)),
+  size: Schema.Number,
+  logicalType: Schema.optionalKey(Schema.String)
+}) as Schema.Schema<AvroFixedSchema>
+
+export const AvroLogicalSchema: Schema.Schema<AvroLogicalSchema> = Schema.Struct({
+  type: Schema.suspend((): Schema.Schema<AvroSchema> => AvroSchema),
+  logicalType: Schema.String,
+  precision: Schema.optionalKey(Schema.Number),
+  scale: Schema.optionalKey(Schema.Number)
+}) as Schema.Schema<AvroLogicalSchema>
+
+export const AvroSchema: Schema.Schema<AvroSchema> = Schema.suspend(() =>
+  Schema.Union([
+    Schema.String,
+    AvroRecordSchema,
+    AvroEnumSchema,
+    AvroArraySchema,
+    AvroMapSchema,
+    AvroFixedSchema,
+    AvroLogicalSchema,
+    Schema.Array(AvroSchema)
+  ])
+) as Schema.Schema<AvroSchema>
 
 type AvroObjectSchema = Exclude<AvroSchema, string | AvroUnionSchema>
 
@@ -98,14 +167,21 @@ export interface Type<A = unknown> {
   readonly getSchema: () => string
 }
 
-export interface DecodeResult<A = unknown> {
+export const DecodeResult = <A>(value: Schema.Schema<A>) =>
+  Schema.Struct({
+    value,
+    offset: Schema.Number
+  })
+
+export type DecodeResult<A = unknown> = {
   readonly value: A
   readonly offset: number
 }
 
-export interface ParseOptions {
-  readonly namespace?: string
-}
+export const ParseOptions = Schema.Struct({
+  namespace: Schema.optionalKey(Schema.String)
+})
+export type ParseOptions = typeof ParseOptions.Type
 
 type Node =
   | { readonly _tag: "null"; readonly schema: AvroSchema }
@@ -124,14 +200,14 @@ type Node =
   | { readonly _tag: "union"; readonly schema: AvroUnionSchema; readonly branches: ReadonlyArray<Node> }
   | { readonly _tag: "ref"; readonly schema: string; readonly name: string; readonly registry: Registry }
 
-interface FieldNode {
+type FieldNode = {
   readonly name: string
   readonly node: Node
   readonly defaultValue: unknown
   readonly hasDefault: boolean
 }
 
-interface Registry {
+type Registry = {
   readonly nodes: Map<string, Node>
   readonly aliases: Map<string, string>
 }

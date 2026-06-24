@@ -2,14 +2,18 @@ import * as Avro from "@avro-effect/core"
 import * as Registry from "@avro-effect/schema-registry"
 import { Context, Effect, Layer, Schema } from "effect"
 
-export interface KafkaMessage {
-  readonly topic: string
-  readonly partition?: number
-  readonly offset?: string | number
-  readonly key?: Uint8Array | null
-  readonly value?: Uint8Array | null
-  readonly headers?: Record<string, Uint8Array | string | undefined>
-}
+export const KafkaMessage = Schema.Struct({
+  topic: Schema.String,
+  partition: Schema.optionalKey(Schema.Number),
+  offset: Schema.optionalKey(Schema.Union([Schema.String, Schema.Number])),
+  key: Schema.optionalKey(Schema.NullOr(Schema.Uint8Array)),
+  value: Schema.optionalKey(Schema.NullOr(Schema.Uint8Array)),
+  headers: Schema.optionalKey(Schema.Record(
+    Schema.String,
+    Schema.Union([Schema.Uint8Array, Schema.String, Schema.Undefined])
+  ))
+})
+export type KafkaMessage = typeof KafkaMessage.Type
 
 export type KafkaPayloadLocation = "key" | "value"
 
@@ -22,17 +26,19 @@ export class KafkaAvroError extends Schema.TaggedErrorClass<KafkaAvroError>()("K
   cause: Schema.optional(Schema.Defect())
 }) {}
 
-export interface KafkaErrorContext {
-  readonly topic?: string
-  readonly partition?: number
-  readonly offset?: string | number
-  readonly location?: KafkaPayloadLocation
-  readonly cause?: unknown
-}
+export const KafkaErrorContext = Schema.Struct({
+  topic: Schema.optionalKey(Schema.String),
+  partition: Schema.optionalKey(Schema.Number),
+  offset: Schema.optionalKey(Schema.Union([Schema.String, Schema.Number])),
+  location: Schema.optionalKey(Schema.Literals(["key", "value"])),
+  cause: Schema.optionalKey(Schema.Defect())
+})
+export type KafkaErrorContext = typeof KafkaErrorContext.Type
 
-export interface AvroSerializerOptions {
-  readonly parseOptions?: Avro.ParseOptions
-}
+export const AvroSerializerOptions = Schema.Struct({
+  parseOptions: Schema.optionalKey(Avro.ParseOptions)
+})
+export type AvroSerializerOptions = typeof AvroSerializerOptions.Type
 
 export const avroSerializer = <A>(
   schema: Avro.AvroSchema,
@@ -46,14 +52,18 @@ export const avroDeserializer = <A = unknown>(
 ) => (payload: Uint8Array): A =>
   Avro.decode<A>(schema, payload, options.parseOptions)
 
-export interface RegistrySerializerOptions extends Omit<Registry.RegisterSchemaRequest, "subject"> {
-  readonly subject?: string
-  readonly topic?: string
-  readonly isKey?: boolean
-  readonly subjectNameStrategy?: Registry.SubjectNameStrategy
-  readonly autoRegister?: boolean
-  readonly parseOptions?: Avro.ParseOptions
-}
+export const RegistrySerializerOptions = Schema.Struct({
+  schema: Avro.AvroSchema,
+  schemaType: Schema.optionalKey(Schema.Literal("AVRO")),
+  references: Schema.optionalKey(Schema.Array(Registry.SchemaReference)),
+  subject: Schema.optionalKey(Schema.String),
+  topic: Schema.optionalKey(Schema.String),
+  isKey: Schema.optionalKey(Schema.Boolean),
+  subjectNameStrategy: Schema.optionalKey(Registry.SubjectNameStrategy),
+  autoRegister: Schema.optionalKey(Schema.Boolean),
+  parseOptions: Schema.optionalKey(Avro.ParseOptions)
+})
+export type RegistrySerializerOptions = typeof RegistrySerializerOptions.Type
 
 export const registrySerializer = <A>(
   client: Registry.SchemaRegistryClient,

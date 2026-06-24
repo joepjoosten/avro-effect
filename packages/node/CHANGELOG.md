@@ -5,6 +5,7 @@
 Initial release.
 
 - Add Avro object container file encoder and decoder.
+- Add Effect Schema values for container encode options and typed container files.
 - Add `null` and `deflate` object container codecs.
 - Add Effect file read/write helpers.
 - Add async iterable container reader helper.

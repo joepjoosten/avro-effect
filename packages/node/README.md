@@ -36,6 +36,7 @@ const program = Effect.gen(function*() {
 ## Features
 
 - Effect service and layer API via `AvroNode`.
+- Effect Schema values for container encode options and typed container files.
 - Avro object container file header, metadata, sync marker, and block handling.
 - `null` and raw `deflate` codecs.
 - Node-backed default filesystem layer plus `AvroNode.layerNoDeps` for custom runtimes and tests.

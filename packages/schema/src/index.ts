@@ -13,102 +13,66 @@ export const AvroFixedSizeAnnotationId = "@avro-effect/schema/fixedSize"
 export const AvroFieldOrderAnnotationId = "@avro-effect/schema/fieldOrder"
 export const EffectTagMetadataKey = "x-effect-tag"
 
-export type AvroPrimitive =
-  | "null"
-  | "boolean"
-  | "int"
-  | "long"
-  | "float"
-  | "double"
-  | "bytes"
-  | "string"
+export const AvroPrimitive = Avro.AvroPrimitive
+export type AvroPrimitive = Avro.AvroPrimitive
 
-export interface AvroRecordField {
-  readonly name: string
-  readonly type: AvroSchema
-  readonly doc?: string
-  readonly default?: unknown
-  readonly order?: "ascending" | "descending" | "ignore"
-  readonly aliases?: ReadonlyArray<string>
-}
+export const AvroRecordField = Avro.AvroRecordField
+export type AvroRecordField = Avro.AvroRecordField
 
-export interface AvroRecordSchema {
-  readonly type: "record" | "error"
-  readonly name: string
-  readonly namespace?: string
-  readonly doc?: string
-  readonly aliases?: ReadonlyArray<string>
-  readonly fields: ReadonlyArray<AvroRecordField>
+export const AvroRecordSchema = Avro.AvroRecordSchema as Schema.Schema<AvroRecordSchema>
+export type AvroRecordSchema = Avro.AvroRecordSchema & {
   readonly [EffectTagMetadataKey]?: string
 }
 
-export interface AvroEnumSchema {
-  readonly type: "enum"
-  readonly name: string
-  readonly namespace?: string
-  readonly doc?: string
-  readonly aliases?: ReadonlyArray<string>
-  readonly symbols: ReadonlyArray<string>
-  readonly default?: string
-}
+export const AvroEnumSchema = Avro.AvroEnumSchema
+export type AvroEnumSchema = Avro.AvroEnumSchema
 
-export interface AvroArraySchema {
-  readonly type: "array"
-  readonly items: AvroSchema
-}
+export const AvroArraySchema = Avro.AvroArraySchema
+export type AvroArraySchema = Avro.AvroArraySchema
 
-export interface AvroMapSchema {
-  readonly type: "map"
-  readonly values: AvroSchema
-}
+export const AvroMapSchema = Avro.AvroMapSchema
+export type AvroMapSchema = Avro.AvroMapSchema
 
-export interface AvroFixedSchema {
-  readonly type: "fixed"
-  readonly name: string
-  readonly namespace?: string
-  readonly aliases?: ReadonlyArray<string>
-  readonly size: number
-  readonly logicalType?: string
-}
+export const AvroFixedSchema = Avro.AvroFixedSchema
+export type AvroFixedSchema = Avro.AvroFixedSchema
 
-export interface AvroLogicalSchema {
-  readonly type: AvroSchema
-  readonly logicalType: string
-  readonly precision?: number
-  readonly scale?: number
-}
+export const AvroLogicalSchema = Avro.AvroLogicalSchema
+export type AvroLogicalSchema = Avro.AvroLogicalSchema
+
+export const AvroSchema = Avro.AvroSchema
+export type AvroSchema = Avro.AvroSchema
 
 export type AvroNamedSchema = AvroRecordSchema | AvroEnumSchema | AvroFixedSchema
 export type AvroUnionSchema = ReadonlyArray<AvroSchema>
-export type AvroSchema =
-  | AvroPrimitive
-  | string
-  | AvroRecordSchema
-  | AvroEnumSchema
-  | AvroArraySchema
-  | AvroMapSchema
-  | AvroFixedSchema
-  | AvroLogicalSchema
-  | AvroUnionSchema
 
-export interface ToAvroOptions {
-  readonly name?: string
-  readonly namespace?: string
-  readonly omitTags?: boolean
-}
+export const ToAvroOptions = Schema.Struct({
+  name: Schema.optionalKey(Schema.String),
+  namespace: Schema.optionalKey(Schema.String),
+  omitTags: Schema.optionalKey(Schema.Boolean)
+})
+export type ToAvroOptions = typeof ToAvroOptions.Type
 
-export interface FromAvroOptions {
-  readonly namespace?: string
-}
+export const FromAvroOptions = Schema.Struct({
+  namespace: Schema.optionalKey(Schema.String)
+})
+export type FromAvroOptions = typeof FromAvroOptions.Type
 
-export interface AvroCodecOptions extends ToAvroOptions {
-  readonly avroSchema?: AvroSchema
-}
+export const AvroCodecOptions = Schema.Struct({
+  name: Schema.optionalKey(Schema.String),
+  namespace: Schema.optionalKey(Schema.String),
+  omitTags: Schema.optionalKey(Schema.Boolean),
+  avroSchema: Schema.optionalKey(AvroSchema)
+})
+export type AvroCodecOptions = typeof AvroCodecOptions.Type
 
-export interface CompiledAvroSchema {
-  readonly schema: AvroSchema
-  readonly type: Avro.Type
-}
+export const CompiledAvroSchema = Schema.Struct({
+  schema: AvroSchema,
+  type: Schema.instanceOf(Object)
+})
+export type CompiledAvroSchema =
+  Omit<typeof CompiledAvroSchema.Type, "type"> & {
+    readonly type: Avro.Type
+  }
 
 export interface AvroCodec<S extends Schema.Constraint>
   extends Schema.Codec<S["Type"], Uint8Array, S["DecodingServices"], S["EncodingServices"]>
@@ -148,7 +112,7 @@ class AvroSchemaError extends Schema.TaggedErrorClass<AvroSchemaError>()("AvroSc
   cause: Schema.optional(Schema.Defect())
 }) {}
 
-interface CompileState {
+type CompileState = {
   readonly options: Required<Pick<ToAvroOptions, "omitTags">> & Omit<ToAvroOptions, "omitTags">
   readonly names: Map<SchemaAST.AST, string>
   readonly schemas: Map<string, AvroNamedSchema>
@@ -632,7 +596,7 @@ const unsupported = (ast: SchemaAST.AST, path: ReadonlyArray<string>) =>
 
 const formatPath = (path: ReadonlyArray<string>) => path.join(".")
 
-interface RuntimeRegistry {
+type RuntimeRegistry = {
   readonly named: Map<string, AvroNamedSchema>
   readonly namespace: string | undefined
 }
@@ -880,7 +844,7 @@ const isComplexTypeName = (type: string) =>
 const isRecordLike = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value)
 
-interface FromAvroContext {
+type FromAvroContext = {
   readonly namespace: string | undefined
   readonly schemas: Map<string, Schema.Constraint>
 }

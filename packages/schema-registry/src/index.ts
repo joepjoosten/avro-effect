@@ -1,46 +1,64 @@
 import * as Avro from "@avro-effect/core"
 import { Context, Effect, Layer, Schema } from "effect"
 
-export interface SchemaReference {
-  readonly name: string
-  readonly subject: string
-  readonly version: number
-}
+export const SchemaReference = Schema.Struct({
+  name: Schema.String,
+  subject: Schema.String,
+  version: Schema.Number
+})
+export type SchemaReference = typeof SchemaReference.Type
 
-export interface RegisterSchemaRequest {
-  readonly subject: string
-  readonly schema: Avro.AvroSchema
-  readonly schemaType?: "AVRO"
-  readonly references?: ReadonlyArray<SchemaReference>
-}
+export const RegisterSchemaRequest = Schema.Struct({
+  subject: Schema.String,
+  schema: Avro.AvroSchema,
+  schemaType: Schema.optionalKey(Schema.Literal("AVRO")),
+  references: Schema.optionalKey(Schema.Array(SchemaReference))
+})
+export type RegisterSchemaRequest = typeof RegisterSchemaRequest.Type
 
-export interface RegisteredSchema {
-  readonly id: number
-  readonly subject?: string
-  readonly version?: number
-  readonly schema: Avro.AvroSchema
-  readonly schemaType: "AVRO"
-  readonly references: ReadonlyArray<SchemaReference>
-}
+export const RegisteredSchema = Schema.Struct({
+  id: Schema.Number,
+  subject: Schema.optionalKey(Schema.String),
+  version: Schema.optionalKey(Schema.Number),
+  schema: Avro.AvroSchema,
+  schemaType: Schema.Literal("AVRO"),
+  references: Schema.Array(SchemaReference)
+})
+export type RegisteredSchema = typeof RegisteredSchema.Type
 
-export interface CompatibilityResult {
-  readonly isCompatible: boolean
-}
+export const CompatibilityResult = Schema.Struct({
+  isCompatible: Schema.Boolean
+})
+export type CompatibilityResult = typeof CompatibilityResult.Type
 
-export type SchemaRegistryAuth =
-  | { readonly _tag: "None" }
-  | { readonly _tag: "Basic"; readonly username: string; readonly password: string }
-  | { readonly _tag: "Bearer"; readonly token: string }
+export const SchemaRegistryAuth = Schema.Union([
+  Schema.Struct({ _tag: Schema.Literal("None") }),
+  Schema.Struct({
+    _tag: Schema.Literal("Basic"),
+    username: Schema.String,
+    password: Schema.String
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("Bearer"),
+    token: Schema.String
+  })
+])
+export type SchemaRegistryAuth = typeof SchemaRegistryAuth.Type
 
 export type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>
 
-export interface SchemaRegistryClientOptions {
-  readonly endpoint: string
-  readonly auth?: SchemaRegistryAuth
-  readonly headers?: Record<string, string>
-  readonly fetch?: FetchLike
-  readonly cache?: boolean
-}
+const SchemaRegistryClientOptionsBase = Schema.Struct({
+  endpoint: Schema.String,
+  auth: Schema.optionalKey(SchemaRegistryAuth),
+  headers: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
+  fetch: Schema.optionalKey(Schema.instanceOf(Function)),
+  cache: Schema.optionalKey(Schema.Boolean)
+})
+export const SchemaRegistryClientOptions = SchemaRegistryClientOptionsBase
+export type SchemaRegistryClientOptions =
+  Omit<typeof SchemaRegistryClientOptionsBase.Type, "fetch"> & {
+    readonly fetch?: FetchLike
+  }
 
 export interface SchemaRegistryClient {
   readonly register: (request: RegisterSchemaRequest) => Effect.Effect<RegisteredSchema, SchemaRegistryClientError>
@@ -88,18 +106,25 @@ export class InvalidRegistryFrame extends Schema.TaggedErrorClass<InvalidRegistr
 
 export type SchemaRegistryClientError = SchemaRegistryError | SchemaRegistryHttpError | InvalidRegistryFrame
 
-export interface ConfluentFrame {
-  readonly schemaId: number
-  readonly payload: Uint8Array
-}
+export const ConfluentFrame = Schema.Struct({
+  schemaId: Schema.Number,
+  payload: Schema.Uint8Array
+})
+export type ConfluentFrame = typeof ConfluentFrame.Type
 
-export type SubjectNameStrategy = "TopicNameStrategy" | "RecordNameStrategy" | "TopicRecordNameStrategy"
+export const SubjectNameStrategy = Schema.Literals([
+  "TopicNameStrategy",
+  "RecordNameStrategy",
+  "TopicRecordNameStrategy"
+])
+export type SubjectNameStrategy = typeof SubjectNameStrategy.Type
 
-export interface SubjectNameInput {
-  readonly topic: string
-  readonly isKey?: boolean
-  readonly schema: Avro.AvroSchema
-}
+export const SubjectNameInput = Schema.Struct({
+  topic: Schema.String,
+  isKey: Schema.optionalKey(Schema.Boolean),
+  schema: Avro.AvroSchema
+})
+export type SubjectNameInput = typeof SubjectNameInput.Type
 
 const magicByte = 0
 
@@ -289,11 +314,19 @@ export const checkCompatibility = (
 ): Effect.Effect<CompatibilityResult, SchemaRegistryClientError, SchemaRegistry> =>
   SchemaRegistry.use((registry) => registry.checkCompatibility(request))
 
-export interface RegistryEncodeOptions<A> extends RegisterSchemaRequest {
-  readonly value: A
-  readonly autoRegister?: boolean
-  readonly parseOptions?: Avro.ParseOptions
-}
+export const RegistryEncodeOptions = Schema.Struct({
+  subject: Schema.String,
+  schema: Avro.AvroSchema,
+  schemaType: Schema.optionalKey(Schema.Literal("AVRO")),
+  references: Schema.optionalKey(Schema.Array(SchemaReference)),
+  value: Schema.Unknown,
+  autoRegister: Schema.optionalKey(Schema.Boolean),
+  parseOptions: Schema.optionalKey(Avro.ParseOptions)
+})
+export type RegistryEncodeOptions<A> =
+  Omit<typeof RegistryEncodeOptions.Type, "value"> & {
+    readonly value: A
+  }
 
 export const encodeWithRegistry = <A>(
   client: SchemaRegistryClient,
@@ -335,14 +368,15 @@ export const decode = <A = unknown>(
 ): Effect.Effect<A, SchemaRegistryClientError | Avro.AvroError, SchemaRegistry> =>
   SchemaRegistry.use((registry) => decodeWithRegistry<A>(registry, input, options))
 
-interface RegistryResponse {
-  readonly id?: number
-  readonly subject?: string
-  readonly version?: number
-  readonly schema?: string
-  readonly schemaType?: string
-  readonly references?: ReadonlyArray<SchemaReference>
-}
+const RegistryResponse = Schema.Struct({
+  id: Schema.optionalKey(Schema.Number),
+  subject: Schema.optionalKey(Schema.String),
+  version: Schema.optionalKey(Schema.Number),
+  schema: Schema.optionalKey(Schema.String),
+  schemaType: Schema.optionalKey(Schema.String),
+  references: Schema.optionalKey(Schema.Array(SchemaReference))
+})
+type RegistryResponse = typeof RegistryResponse.Type
 
 const normalizeRegisteredSchema = (
   response: RegistryResponse,

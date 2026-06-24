@@ -7,15 +7,33 @@ import { Context, Effect, FileSystem, Layer, PlatformError, Schema } from "effec
 
 export type ContainerCodec = "null" | "deflate"
 
-export interface ContainerEncodeOptions {
-  readonly codec?: ContainerCodec
-  readonly metadata?: Record<string, Buffer | Uint8Array | string>
-  readonly syncMarker?: Buffer | Uint8Array
-  readonly blockSize?: number
-  readonly parseOptions?: Avro.ParseOptions
-}
+const ContainerEncodeOptionsBase = Schema.Struct({
+  codec: Schema.optionalKey(Schema.Literals(["null", "deflate"])),
+  metadata: Schema.optionalKey(Schema.Record(
+    Schema.String,
+    Schema.Union([Schema.Uint8Array, Schema.String])
+  )),
+  syncMarker: Schema.optionalKey(Schema.Uint8Array),
+  blockSize: Schema.optionalKey(Schema.Number),
+  parseOptions: Schema.optionalKey(Avro.ParseOptions)
+})
+export const ContainerEncodeOptions = ContainerEncodeOptionsBase
+export type ContainerEncodeOptions =
+  Omit<typeof ContainerEncodeOptionsBase.Type, "metadata" | "syncMarker"> & {
+    readonly metadata?: Record<string, Buffer | Uint8Array | string>
+    readonly syncMarker?: Buffer | Uint8Array
+  }
 
-export interface ContainerFile<A = unknown> {
+export const ContainerFile = <A>(value: Schema.Schema<A>) =>
+  Schema.Struct({
+    schema: Avro.AvroSchema,
+    codec: Schema.Literals(["null", "deflate"]),
+    metadata: Schema.Record(Schema.String, Schema.Uint8Array),
+    syncMarker: Schema.Uint8Array,
+    values: Schema.Array(value)
+  })
+
+export type ContainerFile<A = unknown> = {
   readonly schema: Avro.AvroSchema
   readonly codec: ContainerCodec
   readonly metadata: Record<string, Buffer>

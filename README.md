@@ -87,6 +87,8 @@ const value = decode(schema, bytes)
 - `@avro-effect/kafka` composes the registry package into Kafka key/value serializer and deserializer functions without depending on a Kafka client.
 - `@avro-effect/node` reads and writes Avro object-container files with `null` and `deflate` codecs.
 
+Public data models are exported as Effect Schema values plus matching types, for example `AvroSchema`, `RegisterSchemaRequest`, `KafkaMessage`, and `ContainerEncodeOptions`.
+
 The integration packages expose Effect services as their primary API:
 
 ```ts

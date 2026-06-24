@@ -40,6 +40,7 @@ const program = Effect.gen(function*() {
 ## Features
 
 - Effect service and layer API via `SchemaRegistry`.
+- Effect Schema values for registry requests, responses, frames, auth, and subject naming input.
 - Register and lookup Avro schemas by subject.
 - Fetch schemas by id, subject version, and latest version.
 - Confluent wire frame helpers: magic byte `0`, 4-byte schema id, Avro payload.

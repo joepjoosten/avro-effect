@@ -1,5 +1,5 @@
 import { Effect, Schema } from "effect"
-import type { KafkaMessage } from "@avro-effect/kafka"
+import { KafkaMessage } from "@avro-effect/kafka"
 import { InvalidRegistryFrame, SchemaRegistryHttpError } from "@avro-effect/schema-registry"
 import {
   decodeOrderMessage,
@@ -7,11 +7,12 @@ import {
   OrderEventDecodeError
 } from "./registry-kafka-events.js"
 
-export interface DeadLetterMessage {
-  readonly topic: string
-  readonly original: KafkaMessage
-  readonly reason: string
-}
+export const DeadLetterMessage = Schema.Struct({
+  topic: Schema.String,
+  original: KafkaMessage,
+  reason: Schema.String
+})
+export type DeadLetterMessage = typeof DeadLetterMessage.Type
 
 export class UnknownOrderEventFailure
   extends Schema.TaggedErrorClass<UnknownOrderEventFailure>()("UnknownOrderEventFailure", {

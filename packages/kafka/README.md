@@ -42,6 +42,7 @@ const program = Effect.gen(function*() {
 ## Features
 
 - Effect service and layer API via `KafkaAvro`.
+- Effect Schema values for Kafka messages and serializer options.
 - Plain Avro serializers/deserializers for raw Kafka payloads.
 - Confluent Schema Registry backed key/value serializers.
 - Confluent frame deserialization by embedded schema id.
